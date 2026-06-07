@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="0"
+        android:centerColor="@color/nova_cyan"
+        android:endColor="@color/nova_mint"
+        android:startColor="@color/nova_pink" />
+    <corners android:radius="99dp" />
+</shape>
+

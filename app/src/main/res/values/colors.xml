@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="nova_bg">#04070D</color>
+    <color name="nova_panel">#CC0A1220</color>
+    <color name="nova_panel_soft">#14FFFFFF</color>
+    <color name="nova_panel_strong">#F20F192A</color>
+    <color name="nova_cyan">#64E8FF</color>
+    <color name="nova_mint">#6DFFBF</color>
+    <color name="nova_pink">#FF5D9F</color>
+    <color name="nova_amber">#FFD166</color>
+    <color name="nova_ink">#EEF8FF</color>
+    <color name="nova_soft">#B8EEF8FF</color>
+    <color name="nova_muted">#8DA3B7</color>
+    <color name="nova_line">#3D72E6FF</color>
+    <color name="nova_line_strong">#9E72E6FF</color>
+</resources>
+

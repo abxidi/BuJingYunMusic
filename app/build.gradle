@@ -1,0 +1,17 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.novapulse.mp3"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.novapulse.mp3"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+    }
+}
+

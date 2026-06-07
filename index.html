@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NovaPulse MP3 Fullscreen Player</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #04070d;
+        --panel: rgba(9, 15, 28, 0.78);
+        --panel-strong: rgba(15, 25, 42, 0.96);
+        --line: rgba(114, 230, 255, 0.24);
+        --line-strong: rgba(114, 230, 255, 0.62);
+        --cyan: #64e8ff;
+        --mint: #6dffbf;
+        --pink: #ff5d9f;
+        --amber: #ffd166;
+        --ink: #eef8ff;
+        --soft: rgba(238, 248, 255, 0.72);
+        --muted: #8da3b7;
+        --danger: #ff7a96;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 16% 12%, rgba(100, 232, 255, 0.2), transparent 30%),
+          radial-gradient(circle at 82% 18%, rgba(255, 93, 159, 0.16), transparent 28%),
+          linear-gradient(135deg, #04070d 0%, #0a1420 48%, #150a18 100%);
+        overflow: hidden;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button {
+        color: inherit;
+      }
+
+      .app-shell {
+        position: relative;
+        min-height: 100vh;
+        overflow: hidden;
+        isolation: isolate;
+      }
+
+      .app-shell::before {
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        content: "";
+        background-image:
+          linear-gradient(rgba(100, 232, 255, 0.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(100, 232, 255, 0.06) 1px, transparent 1px);
+        background-size: 44px 44px;
+        mask-image: linear-gradient(to bottom, black 0 72%, transparent);
+      }
+
+      .app-shell::after {
+        position: fixed;
+        inset: -18%;
+        z-index: -1;
+        content: "";
+        background:
+          conic-gradient(from 170deg, transparent, rgba(100, 232, 255, 0.12), transparent 35%),
+          radial-gradient(circle, rgba(109, 255, 191, 0.08), transparent 54%);
+        animation: scan 14s linear infinite;
+      }
+
+      .player {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        min-height: 100vh;
+        padding: max(18px, env(safe-area-inset-top)) clamp(18px, 4vw, 48px)
+          max(20px, env(safe-area-inset-bottom));
+      }
+
+      .topbar,
+      .statusline,
+      .player-main,
+      .transport,
+      .menu-drawer {
+        position: relative;
+        z-index: 2;
+      }
+
+      .statusline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 26px;
+        color: rgba(238, 248, 255, 0.78);
+        font-size: 12px;
+      }
+
+      .signals {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .battery {
+        width: 22px;
+        height: 10px;
+        border: 1px solid rgba(238, 248, 255, 0.74);
+        border-radius: 3px;
+      }
+
+      .battery::after {
+        display: block;
+        width: 14px;
+        height: 6px;
+        margin: 1px;
+        content: "";
+        border-radius: 2px;
+        background: var(--mint);
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 50px 1fr 50px;
+        align-items: center;
+        gap: 14px;
+        padding-top: 16px;
+      }
+
+      .brand {
+        min-width: 0;
+        text-align: center;
+      }
+
+      .brand strong,
+      .brand span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .brand strong {
+        font-size: clamp(18px, 3vw, 24px);
+        letter-spacing: 0;
+      }
+
+      .brand span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .icon-btn {
+        display: inline-grid;
+        width: 46px;
+        height: 46px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.045);
+        cursor: pointer;
+        transition: 160ms ease;
+      }
+
+      .icon-btn:hover,
+      .icon-btn.active,
+      .icon-btn[aria-pressed="true"] {
+        border-color: var(--line-strong);
+        background: rgba(100, 232, 255, 0.12);
+        box-shadow: 0 0 28px rgba(100, 232, 255, 0.16);
+      }
+
+      .favorite-main[aria-pressed="true"] {
+        color: var(--pink);
+        border-color: rgba(255, 93, 159, 0.58);
+        background: rgba(255, 93, 159, 0.12);
+      }
+
+      .top-spacer {
+        width: 46px;
+        height: 46px;
+      }
+
+      .icon {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.85;
+      }
+
+      .player-main {
+        display: grid;
+        align-content: center;
+        justify-items: center;
+        gap: clamp(18px, 4vh, 30px);
+        min-height: 0;
+        padding: 22px 0;
+      }
+
+      .orbit {
+        position: relative;
+        display: grid;
+        width: min(66vw, 420px);
+        aspect-ratio: 1;
+        place-items: center;
+      }
+
+      .orbit::before,
+      .orbit::after {
+        position: absolute;
+        inset: 0;
+        content: "";
+        border: 1px solid rgba(114, 230, 255, 0.22);
+        border-radius: 50%;
+      }
+
+      .orbit::before {
+        box-shadow:
+          0 0 80px rgba(100, 232, 255, 0.18),
+          inset 0 0 60px rgba(255, 93, 159, 0.08);
+      }
+
+      .orbit::after {
+        inset: 9%;
+        border-style: dashed;
+        animation: spin 18s linear infinite;
+      }
+
+      .disc {
+        position: relative;
+        display: grid;
+        width: 72%;
+        aspect-ratio: 1;
+        place-items: center;
+        border: 1px solid rgba(238, 248, 255, 0.16);
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at center, #05070d 0 12%, transparent 13%),
+          radial-gradient(circle at center, transparent 0 23%, rgba(5, 7, 13, 0.88) 24% 36%, transparent 37%),
+          conic-gradient(from 220deg, #64e8ff, #6dffbf, #ffd166, #ff5d9f, #64e8ff);
+        box-shadow:
+          0 0 68px rgba(100, 232, 255, 0.24),
+          inset 0 0 0 18px rgba(5, 7, 13, 0.74),
+          inset 0 0 0 24px rgba(238, 248, 255, 0.08);
+      }
+
+      .disc::before {
+        position: absolute;
+        inset: 18%;
+        content: "";
+        border: 1px solid rgba(238, 248, 255, 0.18);
+        border-radius: 50%;
+      }
+
+      .disc .icon {
+        width: clamp(34px, 8vw, 54px);
+        height: clamp(34px, 8vw, 54px);
+        color: #031018;
+        filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.58));
+      }
+
+      .track {
+        display: grid;
+        justify-items: center;
+        width: min(620px, 100%);
+        gap: 8px;
+        text-align: center;
+      }
+
+      .track h1 {
+        max-width: 100%;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: clamp(30px, 7vw, 58px);
+        line-height: 1.02;
+        letter-spacing: 0;
+      }
+
+      .track p {
+        max-width: 100%;
+        margin: 0;
+        overflow: hidden;
+        color: var(--soft);
+        font-size: clamp(13px, 2.2vw, 16px);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .signal-bars {
+        display: flex;
+        align-items: end;
+        justify-content: center;
+        gap: 7px;
+        min-height: 54px;
+      }
+
+      .signal-bars span {
+        width: 7px;
+        border-radius: 999px;
+        background: linear-gradient(to top, var(--pink), var(--cyan), var(--mint));
+        box-shadow: 0 0 18px rgba(100, 232, 255, 0.28);
+        animation: pulse 1050ms ease-in-out infinite alternate;
+      }
+
+      .signal-bars span:nth-child(1) {
+        height: 18px;
+      }
+
+      .signal-bars span:nth-child(2) {
+        height: 42px;
+        animation-delay: 120ms;
+      }
+
+      .signal-bars span:nth-child(3) {
+        height: 28px;
+        animation-delay: 240ms;
+      }
+
+      .signal-bars span:nth-child(4) {
+        height: 50px;
+        animation-delay: 360ms;
+      }
+
+      .signal-bars span:nth-child(5) {
+        height: 24px;
+        animation-delay: 480ms;
+      }
+
+      .progress {
+        display: grid;
+        grid-template-columns: auto minmax(120px, 560px) auto;
+        align-items: center;
+        width: min(760px, 100%);
+        gap: 12px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .bar {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(238, 248, 255, 0.14);
+        overflow: hidden;
+      }
+
+      .bar span {
+        display: block;
+        width: 43%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--pink), var(--cyan), var(--mint));
+      }
+
+      .transport {
+        display: grid;
+        justify-items: center;
+        gap: 18px;
+      }
+
+      .control-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .mode-pill {
+        display: inline-grid;
+        width: 58px;
+        height: 58px;
+        grid-template-rows: 22px 1fr;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 6px 0 7px;
+        border: 1px solid rgba(114, 230, 255, 0.26);
+        border-radius: 18px;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.055);
+        cursor: pointer;
+      }
+
+      .mode-pill .icon {
+        width: 20px;
+        height: 20px;
+      }
+
+      .mode-label {
+        min-width: 0;
+        font-size: 10px;
+        line-height: 1;
+        text-align: center;
+      }
+
+      .control-row {
+        gap: clamp(12px, 3vw, 20px);
+      }
+
+      .control-row .icon-btn {
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+      }
+
+      .play {
+        width: 72px;
+        height: 72px;
+        border-radius: 22px;
+        color: #031018;
+        background: linear-gradient(135deg, var(--cyan), var(--mint));
+        box-shadow: 0 0 42px rgba(100, 232, 255, 0.34);
+      }
+
+      .menu-drawer {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        width: min(440px, 92vw);
+        padding: 22px;
+        border-right: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(10, 18, 32, 0.98), rgba(5, 8, 15, 0.98)),
+          repeating-linear-gradient(90deg, transparent 0 12px, rgba(255, 255, 255, 0.022) 12px 13px);
+        box-shadow: 28px 0 90px rgba(0, 0, 0, 0.54);
+        transform: translateX(-104%);
+        transition: transform 220ms ease;
+      }
+
+      .menu-drawer.open {
+        transform: translateX(0);
+      }
+
+      .scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        background: rgba(0, 0, 0, 0.54);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+      }
+
+      .scrim.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .drawer-head {
+        display: grid;
+        grid-template-columns: 1fr 46px;
+        align-items: center;
+        gap: 14px;
+        padding-top: 6px;
+      }
+
+      .drawer-title strong,
+      .drawer-title span {
+        display: block;
+      }
+
+      .drawer-title strong {
+        font-size: 21px;
+      }
+
+      .drawer-title span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .menu-tabs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin: 22px 0 16px;
+      }
+
+      .menu-tab {
+        display: grid;
+        min-height: 48px;
+        place-items: center;
+        border: 1px solid rgba(114, 230, 255, 0.16);
+        border-radius: 14px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+      }
+
+      .menu-tab.active {
+        color: var(--cyan);
+        border-color: rgba(100, 232, 255, 0.5);
+        background: rgba(100, 232, 255, 0.12);
+      }
+
+      .drawer-panel {
+        display: none;
+        min-height: 0;
+        overflow: auto;
+      }
+
+      .drawer-panel.active {
+        display: block;
+      }
+
+      .search {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 10px;
+        min-height: 46px;
+        margin-bottom: 14px;
+        padding: 0 14px;
+        border: 1px solid rgba(114, 230, 255, 0.18);
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .search input {
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        color: var(--ink);
+        background: transparent;
+        outline: none;
+      }
+
+      .search input::placeholder {
+        color: #748ca4;
+      }
+
+      .song-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .song {
+        display: grid;
+        grid-template-columns: 42px 1fr auto auto;
+        align-items: center;
+        gap: 10px;
+        min-height: 64px;
+        padding: 10px;
+        border: 1px solid rgba(114, 230, 255, 0.14);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+      }
+
+      .song.active {
+        border-color: rgba(109, 255, 191, 0.52);
+        background: rgba(109, 255, 191, 0.09);
+      }
+
+      .song-art {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border-radius: 14px;
+        color: #061019;
+        background: linear-gradient(135deg, var(--cyan), var(--pink));
+      }
+
+      .song-info {
+        min-width: 0;
+      }
+
+      .song-info strong,
+      .song-info span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .song-info strong {
+        font-size: 14px;
+      }
+
+      .song-info span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .duration {
+        color: var(--soft);
+        font-size: 12px;
+      }
+
+      .mini-fav {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid rgba(114, 230, 255, 0.14);
+        border-radius: 11px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+      }
+
+      .mini-fav[aria-pressed="true"] {
+        color: var(--pink);
+        border-color: rgba(255, 93, 159, 0.46);
+        background: rgba(255, 93, 159, 0.1);
+      }
+
+      .empty {
+        display: none;
+        padding: 28px 18px;
+        border: 1px solid rgba(114, 230, 255, 0.16);
+        border-radius: 16px;
+        color: var(--muted);
+        text-align: center;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .empty.show {
+        display: block;
+      }
+
+      .folder-panel,
+      .setting-panel {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+        border: 1px solid rgba(114, 230, 255, 0.18);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .folder-row {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .folder-path {
+        min-width: 0;
+      }
+
+      .folder-path strong,
+      .folder-path span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .folder-path strong {
+        font-size: 14px;
+      }
+
+      .folder-path span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .primary-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        min-height: 44px;
+        border: 0;
+        border-radius: 15px;
+        color: #041218;
+        background: linear-gradient(135deg, var(--cyan), var(--mint));
+        cursor: pointer;
+        font-weight: 760;
+      }
+
+      .setting {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 12px;
+        min-height: 58px;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(238, 248, 255, 0.08);
+      }
+
+      .setting:last-child {
+        border-bottom: 0;
+      }
+
+      .setting strong,
+      .setting span {
+        display: block;
+      }
+
+      .setting strong {
+        font-size: 14px;
+      }
+
+      .setting span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .switch {
+        position: relative;
+        width: 48px;
+        height: 28px;
+        border: 1px solid rgba(114, 230, 255, 0.2);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .switch::after {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 18px;
+        height: 18px;
+        content: "";
+        border-radius: 50%;
+        background: #7c8da0;
+      }
+
+      .switch.on {
+        background: rgba(109, 255, 191, 0.18);
+      }
+
+      .switch.on::after {
+        left: 24px;
+        background: var(--mint);
+        box-shadow: 0 0 16px rgba(109, 255, 191, 0.5);
+      }
+
+      .select {
+        min-width: 96px;
+        min-height: 36px;
+        border: 1px solid rgba(114, 230, 255, 0.24);
+        border-radius: 11px;
+        color: var(--ink);
+        background: #0d1724;
+      }
+
+      @keyframes scan {
+        to {
+          transform: rotate(1turn);
+        }
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(1turn);
+        }
+      }
+
+      @keyframes pulse {
+        to {
+          transform: scaleY(0.45);
+          opacity: 0.72;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .player {
+          padding-inline: 18px;
+        }
+
+        .orbit {
+          width: min(78vw, 360px);
+        }
+
+        .track h1 {
+          font-size: clamp(28px, 9vw, 44px);
+        }
+      }
+
+      @media (max-height: 720px) {
+        .orbit {
+          width: min(52vh, 340px);
+        }
+
+        .signal-bars {
+          min-height: 38px;
+        }
+
+        .play {
+          width: 62px;
+          height: 62px;
+        }
+
+        .control-row .icon-btn,
+        .mode-pill,
+        .favorite-main {
+          width: 52px;
+          height: 52px;
+        }
+
+        .control-row .play {
+          width: 62px;
+          height: 62px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <div class="scrim" data-close-menu></div>
+
+      <section class="player" aria-label="NovaPulse 全屏播放器">
+        <div>
+          <div class="statusline">
+            <span>09:41</span>
+            <div class="signals">
+              <span>5G</span>
+              <span class="battery" aria-label="battery"></span>
+            </div>
+          </div>
+
+          <header class="topbar">
+            <button class="icon-btn" id="menuButton" aria-label="菜单">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M4 12h16" />
+                <path d="M4 17h16" />
+              </svg>
+            </button>
+
+            <div class="brand">
+              <strong>NovaPulse</strong>
+              <span>本地 MP3 全屏播放</span>
+            </div>
+
+            <span class="top-spacer" aria-hidden="true"></span>
+          </header>
+        </div>
+
+        <section class="player-main">
+          <div class="orbit" aria-hidden="true">
+            <div class="disc">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="track">
+            <h1 id="trackTitle">星际漫游.mp3</h1>
+            <p id="trackMeta">手机存储 / Music / Synthwave</p>
+          </div>
+
+          <div class="signal-bars" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+
+          <div class="progress">
+            <span>01:24</span>
+            <div class="bar"><span id="progressFill"></span></div>
+            <span id="trackDuration">03:48</span>
+          </div>
+        </section>
+
+        <section class="transport" aria-label="播放控制">
+          <div class="control-row">
+            <button class="mode-pill" id="modeButton" aria-label="切换播放模式">
+              <svg class="icon" id="modeIcon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M16 3h5v5" />
+                <path d="M4 20 21 3" />
+                <path d="M21 16v5h-5" />
+                <path d="M15 15 21 21" />
+                <path d="M4 4l5 5" />
+              </svg>
+              <span class="mode-label" id="modeLabel">随机</span>
+            </button>
+            <button class="icon-btn" aria-label="上一首">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m11 19-8-7 8-7v14Z" />
+                <path d="m21 19-8-7 8-7v14Z" />
+              </svg>
+            </button>
+            <button class="icon-btn play" aria-label="播放">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m8 5 11 7-11 7V5Z" />
+              </svg>
+            </button>
+            <button class="icon-btn" aria-label="下一首">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m13 5 8 7-8 7V5Z" />
+                <path d="m3 5 8 7-8 7V5Z" />
+              </svg>
+            </button>
+            <button class="icon-btn favorite-main" id="favoriteCurrent" aria-label="收藏当前音乐" aria-pressed="true">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19.5 12.6 12 20l-7.5-7.4A4.6 4.6 0 0 1 11 6.1l1 1 1-1a4.6 4.6 0 0 1 6.5 6.5Z" />
+              </svg>
+            </button>
+          </div>
+        </section>
+      </section>
+
+      <aside class="menu-drawer" id="menuDrawer" aria-label="播放器菜单">
+        <header class="drawer-head">
+          <div class="drawer-title">
+            <strong>控制菜单</strong>
+            <span>曲库 / 收藏 / 目录 / 设置</span>
+          </div>
+          <button class="icon-btn" data-close-menu aria-label="关闭菜单">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </header>
+
+        <nav class="menu-tabs" aria-label="菜单分页">
+          <button class="menu-tab active" data-panel="library" aria-label="曲库">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+            </svg>
+          </button>
+          <button class="menu-tab" data-panel="favorites" aria-label="收藏">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19.5 12.6 12 20l-7.5-7.4A4.6 4.6 0 0 1 11 6.1l1 1 1-1a4.6 4.6 0 0 1 6.5 6.5Z" />
+            </svg>
+          </button>
+          <button class="menu-tab" data-panel="folders" aria-label="目录">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9Z" />
+            </svg>
+          </button>
+          <button class="menu-tab" data-panel="settings" aria-label="设置">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+              <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04a2.1 2.1 0 0 1-2.97 2.97l-.04-.04a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.66V21.3a2.1 2.1 0 1 1-4.2 0v-.06a1.8 1.8 0 0 0-1.1-1.66 1.8 1.8 0 0 0-1.98.36l-.04.04a2.1 2.1 0 0 1-2.97-2.97l.04-.04A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.66-1.1H2.88a2.1 2.1 0 1 1 0-4.2h.06A1.8 1.8 0 0 0 4.6 8.6a1.8 1.8 0 0 0-.36-1.98l-.04-.04A2.1 2.1 0 0 1 7.17 3.6l.04.04a1.8 1.8 0 0 0 1.98.36 1.8 1.8 0 0 0 1.1-1.66V2.28a2.1 2.1 0 1 1 4.2 0v.06a1.8 1.8 0 0 0 1.1 1.66 1.8 1.8 0 0 0 1.98-.36l.04-.04a2.1 2.1 0 0 1 2.97 2.97l-.04.04a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.66 1.1h.06a2.1 2.1 0 1 1 0 4.2h-.06A1.8 1.8 0 0 0 19.4 15Z" />
+            </svg>
+          </button>
+        </nav>
+
+        <section class="drawer-panel active" data-panel-view="library">
+          <div class="search">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.2-3.2" />
+            </svg>
+            <input type="search" placeholder="搜索本地 MP3" />
+          </div>
+
+          <div class="song-list" id="libraryList"></div>
+        </section>
+
+        <section class="drawer-panel" data-panel-view="favorites">
+          <div class="song-list" id="favoriteList"></div>
+          <div class="empty" id="favoriteEmpty">暂无收藏音乐</div>
+        </section>
+
+        <section class="drawer-panel" data-panel-view="folders">
+          <div class="folder-panel">
+            <div class="folder-row">
+              <div class="icon-btn">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9Z" />
+                </svg>
+              </div>
+              <div class="folder-path">
+                <strong>/storage/emulated/0/Music</strong>
+                <span>已读取 128 首 MP3</span>
+              </div>
+            </div>
+            <button class="primary-action">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="m17 8-5-5-5 5" />
+                <path d="M12 3v12" />
+              </svg>
+              选择手机存储目录
+            </button>
+          </div>
+        </section>
+
+        <section class="drawer-panel" data-panel-view="settings">
+          <div class="setting-panel">
+            <div class="setting">
+              <div>
+                <strong>启动自动扫描</strong>
+                <span>打开应用时刷新本地 MP3</span>
+              </div>
+              <span class="switch on" aria-hidden="true"></span>
+            </div>
+            <div class="setting">
+              <div>
+                <strong>默认播放队列</strong>
+                <span>优先播放收藏列表</span>
+              </div>
+              <span class="switch on" aria-hidden="true"></span>
+            </div>
+            <div class="setting">
+              <div>
+                <strong>音频解码</strong>
+                <span>优先低延迟播放</span>
+              </div>
+              <select class="select" aria-label="音频解码">
+                <option>标准</option>
+                <option>低延迟</option>
+              </select>
+            </div>
+            <div class="setting">
+              <div>
+                <strong>扫描范围</strong>
+                <span>MP3 / M4A / FLAC</span>
+              </div>
+              <select class="select" aria-label="扫描范围">
+                <option>MP3</option>
+                <option>全部</option>
+              </select>
+            </div>
+            <div class="setting">
+              <div>
+                <strong>暗场光效</strong>
+                <span>播放页动态频谱</span>
+              </div>
+              <span class="switch on" aria-hidden="true"></span>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <script>
+      const songs = [
+        {
+          id: "orbit",
+          title: "星际漫游.mp3",
+          meta: "手机存储 / Music / Synthwave",
+          size: "8.6 MB",
+          duration: "03:48",
+          progress: "43%",
+          favorite: true,
+        },
+        {
+          id: "neon",
+          title: "霓虹低频.mp3",
+          meta: "手机存储 / Downloads / Bass",
+          size: "11.2 MB",
+          duration: "04:12",
+          progress: "22%",
+          favorite: false,
+        },
+        {
+          id: "moon",
+          title: "月面通讯.mp3",
+          meta: "手机存储 / Music / Ambient",
+          size: "7.1 MB",
+          duration: "02:57",
+          progress: "61%",
+          favorite: true,
+        },
+        {
+          id: "core",
+          title: "反应堆心跳.mp3",
+          meta: "手机存储 / Music / Cyber",
+          size: "9.4 MB",
+          duration: "03:26",
+          progress: "35%",
+          favorite: false,
+        },
+      ];
+
+      const modeStates = [
+        {
+          label: "随机",
+          icon: '<path d="M16 3h5v5" /><path d="M4 20 21 3" /><path d="M21 16v5h-5" /><path d="M15 15 21 21" /><path d="M4 4l5 5" />',
+        },
+        {
+          label: "循环",
+          icon: '<path d="m17 2 4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />',
+        },
+        {
+          label: "单曲",
+          icon: '<path d="m17 2 4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /><path d="M12 9v6" />',
+        },
+      ];
+
+      const menuButton = document.querySelector("#menuButton");
+      const drawer = document.querySelector("#menuDrawer");
+      const scrim = document.querySelector(".scrim");
+      const closeMenuButtons = document.querySelectorAll("[data-close-menu]");
+      const menuTabs = document.querySelectorAll(".menu-tab");
+      const panels = document.querySelectorAll(".drawer-panel");
+      const libraryList = document.querySelector("#libraryList");
+      const favoriteList = document.querySelector("#favoriteList");
+      const favoriteEmpty = document.querySelector("#favoriteEmpty");
+      const favoriteCurrent = document.querySelector("#favoriteCurrent");
+      const title = document.querySelector("#trackTitle");
+      const meta = document.querySelector("#trackMeta");
+      const duration = document.querySelector("#trackDuration");
+      const progressFill = document.querySelector("#progressFill");
+      const modeButton = document.querySelector("#modeButton");
+      const modeIcon = document.querySelector("#modeIcon");
+      const modeLabel = document.querySelector("#modeLabel");
+
+      let currentSongId = songs[0].id;
+      let modeIndex = 0;
+
+      function openMenu() {
+        drawer.classList.add("open");
+        scrim.classList.add("open");
+      }
+
+      function closeMenu() {
+        drawer.classList.remove("open");
+        scrim.classList.remove("open");
+      }
+
+      function getCurrentSong() {
+        return songs.find((song) => song.id === currentSongId);
+      }
+
+      function renderSong(song) {
+        const article = document.createElement("article");
+        article.className = `song${song.id === currentSongId ? " active" : ""}`;
+        article.dataset.songId = song.id;
+        article.innerHTML = `
+          <div class="song-art">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+            </svg>
+          </div>
+          <div class="song-info">
+            <strong>${song.title}</strong>
+            <span>${song.meta.split(" / ").at(-1)} · ${song.size}</span>
+          </div>
+          <span class="duration">${song.duration}</span>
+          <button class="mini-fav" aria-label="收藏 ${song.title}" aria-pressed="${song.favorite}">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19.5 12.6 12 20l-7.5-7.4A4.6 4.6 0 0 1 11 6.1l1 1 1-1a4.6 4.6 0 0 1 6.5 6.5Z" />
+            </svg>
+          </button>
+        `;
+        return article;
+      }
+
+      function updatePlayer(song) {
+        title.textContent = song.title;
+        meta.textContent = song.meta;
+        duration.textContent = song.duration;
+        progressFill.style.width = song.progress;
+        favoriteCurrent.setAttribute("aria-pressed", String(song.favorite));
+      }
+
+      function renderLists() {
+        libraryList.innerHTML = "";
+        songs.forEach((song) => libraryList.appendChild(renderSong(song)));
+
+        favoriteList.innerHTML = "";
+        const favorites = songs.filter((song) => song.favorite);
+        favorites.forEach((song) => favoriteList.appendChild(renderSong(song)));
+        favoriteEmpty.classList.toggle("show", favorites.length === 0);
+      }
+
+      function selectSong(songId) {
+        currentSongId = songId;
+        updatePlayer(getCurrentSong());
+        renderLists();
+        closeMenu();
+      }
+
+      function toggleFavorite(songId) {
+        const song = songs.find((item) => item.id === songId);
+        song.favorite = !song.favorite;
+        if (song.id === currentSongId) {
+          favoriteCurrent.setAttribute("aria-pressed", String(song.favorite));
+        }
+        renderLists();
+      }
+
+      function handleSongListClick(event) {
+        const favButton = event.target.closest(".mini-fav");
+        const songCard = event.target.closest(".song");
+
+        if (!songCard) return;
+
+        if (favButton) {
+          event.stopPropagation();
+          toggleFavorite(songCard.dataset.songId);
+          return;
+        }
+
+        selectSong(songCard.dataset.songId);
+      }
+
+      menuButton.addEventListener("click", openMenu);
+      closeMenuButtons.forEach((button) => button.addEventListener("click", closeMenu));
+
+      menuTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          menuTabs.forEach((item) => item.classList.toggle("active", item === tab));
+          panels.forEach((panel) => {
+            panel.classList.toggle("active", panel.dataset.panelView === tab.dataset.panel);
+          });
+        });
+      });
+
+      libraryList.addEventListener("click", handleSongListClick);
+      favoriteList.addEventListener("click", handleSongListClick);
+
+      favoriteCurrent.addEventListener("click", () => {
+        toggleFavorite(currentSongId);
+      });
+
+      modeButton.addEventListener("click", () => {
+        modeIndex = (modeIndex + 1) % modeStates.length;
+        modeLabel.textContent = modeStates[modeIndex].label;
+        modeIcon.innerHTML = modeStates[modeIndex].icon;
+      });
+
+      updatePlayer(getCurrentSong());
+      renderLists();
+    </script>
+  </body>
+</html>
