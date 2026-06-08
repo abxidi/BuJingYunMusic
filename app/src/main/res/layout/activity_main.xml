@@ -102,20 +102,19 @@
             </FrameLayout>
         </FrameLayout>
 
-        <LinearLayout
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:gravity="center"
-            android:orientation="horizontal">
+            android:layout_marginTop="28dp">
 
             <TextView
                 android:id="@+id/tvTrackTitle"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:gravity="center"
-                android:maxWidth="235dp"
+                android:paddingStart="52dp"
+                android:paddingEnd="52dp"
                 android:singleLine="true"
                 android:text="@string/track_title"
                 android:textColor="@color/nova_ink"
@@ -126,13 +125,12 @@
                 android:id="@+id/btnFavorite"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
-                android:layout_marginStart="10dp"
-                android:layout_gravity="center_vertical"
+                android:layout_gravity="end|center_vertical"
                 android:background="@drawable/bg_favorite_button"
                 android:contentDescription="收藏当前音乐"
                 android:padding="10dp"
                 android:src="@drawable/ic_heart" />
-        </LinearLayout>
+        </FrameLayout>
 
         <TextView
             android:id="@+id/tvTrackMeta"
@@ -248,7 +246,7 @@
             android:id="@+id/controlRow"
             android:layout_width="match_parent"
             android:layout_height="82dp"
-            android:layout_marginBottom="10dp"
+            android:layout_marginBottom="24dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -256,29 +254,19 @@
                 android:id="@+id/btnMode"
                 android:layout_width="58dp"
                 android:layout_height="58dp"
-                android:background="@drawable/bg_control_button_active"
+                android:background="@drawable/bg_control_button"
                 android:clickable="true"
                 android:contentDescription="随机播放"
                 android:focusable="true"
                 android:gravity="center"
                 android:orientation="vertical"
-                android:padding="6dp">
+                android:padding="15dp">
 
                 <ImageView
                     android:id="@+id/ivMode"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:src="@drawable/ic_shuffle" />
-
-                <TextView
-                    android:id="@+id/tvMode"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:gravity="center"
-                    android:text="随机"
-                    android:textColor="@color/nova_ink"
-                    android:textSize="10sp" />
+                    android:layout_height="match_parent"
+                    android:src="@drawable/ic_shuffle" />
             </LinearLayout>
 
             <Space

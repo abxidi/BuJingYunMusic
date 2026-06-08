@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
     private TextView trackMeta;
     private TextView durationText;
     private TextView elapsedText;
-    private TextView modeText;
+    private View modeButton;
     private TextView folderPath;
     private TextView folderCount;
     private ImageView modeIcon;
@@ -119,7 +119,7 @@ public class MainActivity extends Activity {
         trackMeta = findViewById(R.id.tvTrackMeta);
         durationText = findViewById(R.id.tvDuration);
         elapsedText = findViewById(R.id.tvElapsed);
-        modeText = findViewById(R.id.tvMode);
+        modeButton = findViewById(R.id.btnMode);
         folderPath = findViewById(R.id.tvFolderPath);
         folderCount = findViewById(R.id.tvFolderCount);
         modeIcon = findViewById(R.id.ivMode);
@@ -195,7 +195,7 @@ public class MainActivity extends Activity {
                 closeDrawer();
             }
         });
-        findViewById(R.id.btnMode).setOnClickListener(new View.OnClickListener() {
+        modeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 switchMode();
@@ -579,7 +579,7 @@ public class MainActivity extends Activity {
 
         ImageButton fav = new ImageButton(this);
         fav.setImageResource(R.drawable.ic_heart);
-        fav.setBackgroundResource(song.favorite ? R.drawable.bg_favorite_button : R.drawable.bg_control_button);
+        applyFavoriteButtonStyle(fav, song.favorite);
         fav.setPadding(dp(8), dp(8), dp(8), dp(8));
         fav.setContentDescription("收藏");
         LinearLayout.LayoutParams favParams = new LinearLayout.LayoutParams(dp(34), dp(34));
@@ -591,9 +591,9 @@ public class MainActivity extends Activity {
             public void onClick(View view) {
                 if (favoritesOnly) {
                     activateFavoriteQueue(index);
-                    selectSong(index, false, true);
+                    selectSong(index, true, true);
                 } else {
-                    selectSong(index, false);
+                    selectSong(index, true);
                 }
                 closeDrawer();
             }
@@ -624,7 +624,7 @@ public class MainActivity extends Activity {
         trackMeta.setText(song.meta);
         durationText.setText(song.duration);
         elapsedText.setText("00:00");
-        favoriteButton.setBackgroundResource(song.favorite ? R.drawable.bg_favorite_button : R.drawable.bg_control_button);
+        applyFavoriteButtonStyle(favoriteButton, song.favorite);
         resetPlayer();
         updateProgressWidth(0);
         renderAll();
@@ -635,11 +635,20 @@ public class MainActivity extends Activity {
         if (index < 0 || index >= songs.size()) return;
         Song song = songs.get(index);
         song.favorite = !song.favorite;
-        favoriteButton.setBackgroundResource(songs.get(currentIndex).favorite ? R.drawable.bg_favorite_button : R.drawable.bg_control_button);
+        applyFavoriteButtonStyle(favoriteButton, songs.get(currentIndex).favorite);
         if (favoriteQueueActive) {
             refreshFavoriteQueue();
         }
         renderAll();
+    }
+
+    private void applyFavoriteButtonStyle(ImageButton button, boolean favorite) {
+        button.setBackgroundResource(favoriteButtonBackground(favorite));
+        button.setColorFilter(getResources().getColor(favorite ? R.color.nova_pink : android.R.color.white));
+    }
+
+    private int favoriteButtonBackground(boolean favorite) {
+        return favorite ? R.drawable.bg_favorite_button : R.drawable.bg_control_button;
     }
 
     private void togglePlay() {
@@ -761,14 +770,14 @@ public class MainActivity extends Activity {
     private void switchMode() {
         modeIndex = (modeIndex + 1) % 3;
         if (modeIndex == 0) {
-            modeText.setText("随机");
             modeIcon.setImageResource(R.drawable.ic_shuffle);
+            modeButton.setContentDescription("随机播放");
         } else if (modeIndex == 1) {
-            modeText.setText("循环");
             modeIcon.setImageResource(R.drawable.ic_repeat);
+            modeButton.setContentDescription("循环播放");
         } else {
-            modeText.setText("单曲");
             modeIcon.setImageResource(R.drawable.ic_repeat);
+            modeButton.setContentDescription("单曲循环");
         }
     }
 
@@ -872,9 +881,10 @@ public class MainActivity extends Activity {
     private void configureSettingsDrawer() {
         drawerFromBottom = false;
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) menuDrawer.getLayoutParams();
-        params.width = dp(340);
-        params.height = FrameLayout.LayoutParams.MATCH_PARENT;
-        params.gravity = Gravity.START;
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        params.width = Math.min(screenWidth - dp(40), dp(340));
+        params.height = FrameLayout.LayoutParams.WRAP_CONTENT;
+        params.gravity = Gravity.CENTER;
         menuDrawer.setLayoutParams(params);
         menuDrawer.setTranslationX(0);
         menuDrawer.setTranslationY(0);
