@@ -29,10 +29,10 @@
                 android:layout_width="46dp"
                 android:layout_height="46dp"
                 android:background="@drawable/bg_control_button"
-                android:contentDescription="菜单"
+                android:contentDescription="设置"
                 android:padding="12dp"
                 android:scaleType="center"
-                android:src="@drawable/ic_menu" />
+                android:src="@drawable/ic_settings" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -102,18 +102,37 @@
             </FrameLayout>
         </FrameLayout>
 
-        <TextView
-            android:id="@+id/tvTrackTitle"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
-            android:ellipsize="end"
             android:gravity="center"
-            android:singleLine="true"
-            android:text="@string/track_title"
-            android:textColor="@color/nova_ink"
-            android:textSize="34sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvTrackTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxWidth="235dp"
+                android:singleLine="true"
+                android:text="@string/track_title"
+                android:textColor="@color/nova_ink"
+                android:textSize="34sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btnFavorite"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="10dp"
+                android:layout_gravity="center_vertical"
+                android:background="@drawable/bg_favorite_button"
+                android:contentDescription="收藏当前音乐"
+                android:padding="10dp"
+                android:src="@drawable/ic_heart" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/tvTrackMeta"
@@ -302,13 +321,13 @@
                 android:layout_weight="1" />
 
             <ImageButton
-                android:id="@+id/btnFavorite"
+                android:id="@+id/btnPlaylist"
                 android:layout_width="58dp"
                 android:layout_height="58dp"
-                android:background="@drawable/bg_favorite_button"
-                android:contentDescription="收藏当前音乐"
+                android:background="@drawable/bg_control_button"
+                android:contentDescription="歌单"
                 android:padding="15dp"
-                android:src="@drawable/ic_heart" />
+                android:src="@drawable/ic_playlist" />
         </LinearLayout>
     </LinearLayout>
 
@@ -349,6 +368,7 @@
                     android:orientation="vertical">
 
                     <TextView
+                        android:id="@+id/drawerTitle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/menu_title"
@@ -357,6 +377,7 @@
                         android:textStyle="bold" />
 
                     <TextView
+                        android:id="@+id/drawerSubtitle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
@@ -376,112 +397,107 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/menuTabs"
-                android:layout_width="match_parent"
-                android:layout_height="54dp"
-                android:layout_marginTop="22dp"
-                android:orientation="horizontal">
-
-                <ImageButton
-                    android:id="@+id/tabLibrary"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_control_button_active"
-                    android:contentDescription="曲库"
-                    android:padding="12dp"
-                    android:src="@drawable/ic_music" />
-
-                <ImageButton
-                    android:id="@+id/tabFavorites"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_control_button"
-                    android:contentDescription="收藏"
-                    android:padding="12dp"
-                    android:src="@drawable/ic_heart" />
-
-                <ImageButton
-                    android:id="@+id/tabFolders"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_control_button"
-                    android:contentDescription="目录"
-                    android:padding="12dp"
-                    android:src="@drawable/ic_folder" />
-
-                <ImageButton
-                    android:id="@+id/tabSettings"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_control_button"
-                    android:contentDescription="设置"
-                    android:padding="12dp"
-                    android:src="@drawable/ic_settings" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/panelLibrary"
+                android:id="@+id/playlistContent"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="曲库"
-                    android:textColor="@color/nova_cyan"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:id="@+id/libraryList"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="vertical" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/panelFavorites"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/playlistTabs"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="收藏"
-                    android:textColor="@color/nova_pink"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
+                    android:layout_height="54dp"
+                    android:layout_marginTop="22dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tabAllSongs"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_control_button_active"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:text="全部音乐"
+                        android:textColor="@color/nova_ink"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tabFavoriteSongs"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_control_button"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:text="收藏音乐"
+                        android:textColor="@color/nova_ink"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <LinearLayout
-                    android:id="@+id/favoriteList"
+                    android:id="@+id/panelAllSongs"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="vertical" />
+                    android:layout_marginTop="16dp"
+                    android:orientation="vertical">
+
+                    <Button
+                        android:id="@+id/btnPlayAllSongs"
+                        android:layout_width="match_parent"
+                        android:layout_height="46dp"
+                        android:background="@drawable/bg_play_button"
+                        android:text="播放全部音乐"
+                        android:textColor="#041218"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/allSongList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/panelFavoriteSongs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <Button
+                        android:id="@+id/btnPlayFavoriteSongs"
+                        android:layout_width="match_parent"
+                        android:layout_height="46dp"
+                        android:background="@drawable/bg_play_button"
+                        android:text="播放收藏音乐"
+                        android:textColor="#041218"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/favoriteList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/panelFolders"
+                android:id="@+id/settingsContent"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:background="@drawable/bg_panel"
                 android:orientation="vertical"
-                android:padding="16dp"
-                android:visibility="gone">
+                android:padding="16dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -534,22 +550,12 @@
                     android:text="@string/pick_folder"
                     android:textColor="#041218"
                     android:textStyle="bold" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/panelSettings"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/bg_panel"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:visibility="gone">
 
                 <Switch
                     android:id="@+id/switchAutoScan"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
+                    android:layout_marginTop="14dp"
                     android:checked="true"
                     android:text="启动自动扫描"
                     android:textColor="@color/nova_ink"

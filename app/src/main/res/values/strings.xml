@@ -4,7 +4,7 @@
     <string name="screen_subtitle">本地 MP3 全屏播放</string>
     <string name="track_title">星际漫游.mp3</string>
     <string name="track_meta">手机存储 / Music / Synthwave</string>
-    <string name="menu_title">控制菜单</string>
-    <string name="menu_subtitle">曲库 / 收藏 / 目录 / 设置</string>
+    <string name="menu_title">设置</string>
+    <string name="menu_subtitle">目录 / 播放控制</string>
     <string name="pick_folder">选择手机存储目录</string>
 </resources>

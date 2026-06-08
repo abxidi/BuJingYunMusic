@@ -7,10 +7,12 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.media.MediaPlayer;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -27,7 +29,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
+import java.text.Collator;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
@@ -35,10 +40,14 @@ import java.util.Random;
 public class MainActivity extends Activity {
     private static final int REQUEST_AUDIO_PERMISSION = 1001;
     private static final int REQUEST_FOLDER = 1002;
+    private static final int MAX_TREE_SCAN_COUNT = 500;
+    private static final int MAX_TREE_SCAN_DEPTH = 16;
 
     private final List<Song> songs = new ArrayList<>();
+    private final List<Integer> activeQueue = new ArrayList<>();
     private final Handler handler = new Handler();
     private final Random random = new Random();
+    private final Collator titleCollator = Collator.getInstance(Locale.CHINA);
 
     private TextView trackTitle;
     private TextView trackMeta;
@@ -57,21 +66,24 @@ public class MainActivity extends Activity {
     private LinearLayout drawerContent;
     private View scrim;
     private ScrollView menuDrawer;
-    private LinearLayout libraryList;
+    private TextView drawerTitle;
+    private TextView drawerSubtitle;
+    private LinearLayout playlistContent;
+    private LinearLayout settingsContent;
+    private LinearLayout allSongList;
     private LinearLayout favoriteList;
-    private LinearLayout panelLibrary;
-    private LinearLayout panelFavorites;
-    private LinearLayout panelFolders;
-    private LinearLayout panelSettings;
-    private ImageButton tabLibrary;
-    private ImageButton tabFavorites;
-    private ImageButton tabFolders;
-    private ImageButton tabSettings;
+    private LinearLayout panelAllSongs;
+    private LinearLayout panelFavoriteSongs;
+    private TextView tabAllSongs;
+    private TextView tabFavoriteSongs;
 
     private MediaPlayer mediaPlayer;
     private int currentIndex;
+    private int activeQueuePosition = -1;
     private int modeIndex;
     private boolean prepared;
+    private boolean drawerFromBottom;
+    private boolean favoriteQueueActive;
 
     private final Runnable progressUpdater = new Runnable() {
         @Override
@@ -118,16 +130,16 @@ public class MainActivity extends Activity {
         progressTrack = findViewById(R.id.progressTrack);
         scrim = findViewById(R.id.scrim);
         menuDrawer = findViewById(R.id.menuDrawer);
-        libraryList = findViewById(R.id.libraryList);
+        drawerTitle = findViewById(R.id.drawerTitle);
+        drawerSubtitle = findViewById(R.id.drawerSubtitle);
+        playlistContent = findViewById(R.id.playlistContent);
+        settingsContent = findViewById(R.id.settingsContent);
+        allSongList = findViewById(R.id.allSongList);
         favoriteList = findViewById(R.id.favoriteList);
-        panelLibrary = findViewById(R.id.panelLibrary);
-        panelFavorites = findViewById(R.id.panelFavorites);
-        panelFolders = findViewById(R.id.panelFolders);
-        panelSettings = findViewById(R.id.panelSettings);
-        tabLibrary = findViewById(R.id.tabLibrary);
-        tabFavorites = findViewById(R.id.tabFavorites);
-        tabFolders = findViewById(R.id.tabFolders);
-        tabSettings = findViewById(R.id.tabSettings);
+        panelAllSongs = findViewById(R.id.panelAllSongs);
+        panelFavoriteSongs = findViewById(R.id.panelFavoriteSongs);
+        tabAllSongs = findViewById(R.id.tabAllSongs);
+        tabFavoriteSongs = findViewById(R.id.tabFavoriteSongs);
     }
 
     private void applySystemBarInsets() {
@@ -168,7 +180,7 @@ public class MainActivity extends Activity {
         findViewById(R.id.btnMenu).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                openDrawer();
+                openSettingsDrawer();
             }
         });
         findViewById(R.id.btnCloseDrawer).setOnClickListener(new View.OnClickListener() {
@@ -226,28 +238,34 @@ public class MainActivity extends Activity {
                 toggleFavorite(currentIndex);
             }
         });
-        tabLibrary.setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.btnPlaylist).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                showPanel(panelLibrary, tabLibrary);
+                openPlaylistDrawer();
             }
         });
-        tabFavorites.setOnClickListener(new View.OnClickListener() {
+        tabAllSongs.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                showPanel(panelFavorites, tabFavorites);
+                showPlaylistPanel(false);
             }
         });
-        tabFolders.setOnClickListener(new View.OnClickListener() {
+        tabFavoriteSongs.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                showPanel(panelFolders, tabFolders);
+                showPlaylistPanel(true);
             }
         });
-        tabSettings.setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.btnPlayAllSongs).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                showPanel(panelSettings, tabSettings);
+                playFirstFromList(false);
+            }
+        });
+        findViewById(R.id.btnPlayFavoriteSongs).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                playFirstFromList(true);
             }
         });
         findViewById(R.id.btnPickFolder).setOnClickListener(new View.OnClickListener() {
@@ -344,6 +362,114 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void scanSelectedFolder(Uri treeUri) {
+        List<Song> scanned = new ArrayList<>();
+        try {
+            scanDocumentChildren(treeUri, DocumentsContract.getTreeDocumentId(treeUri), scanned, 0);
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "无法读取所选目录", Toast.LENGTH_SHORT).show();
+        }
+
+        if (scanned.isEmpty()) {
+            folderCount.setText("当前目录及子目录未找到音频");
+            Toast.makeText(this, "当前目录及子目录未找到音频", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        songs.clear();
+        songs.addAll(scanned);
+        currentIndex = 0;
+        activeQueue.clear();
+        activeQueuePosition = -1;
+        folderCount.setText("已读取 " + songs.size() + " 首音频");
+        renderAll();
+        List<Integer> indices = sortedSongIndices(false);
+        selectSong(indices.isEmpty() ? 0 : indices.get(0), false);
+    }
+
+    private void scanDocumentChildren(Uri treeUri, String documentId, List<Song> scanned, int depth) {
+        if (depth > MAX_TREE_SCAN_DEPTH || scanned.size() >= MAX_TREE_SCAN_COUNT) return;
+
+        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId);
+        String[] projection = {
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE
+        };
+
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(childrenUri, projection, null, null, DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+            if (cursor == null) return;
+
+            int idColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+            int nameColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+            int mimeColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE);
+            int sizeColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE);
+
+            while (cursor.moveToNext() && scanned.size() < MAX_TREE_SCAN_COUNT) {
+                String childId = cursor.getString(idColumn);
+                String name = cursor.getString(nameColumn);
+                String mimeType = cursor.getString(mimeColumn);
+                long size = cursor.isNull(sizeColumn) ? 0 : cursor.getLong(sizeColumn);
+
+                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType)) {
+                    scanDocumentChildren(treeUri, childId, scanned, depth + 1);
+                } else if (isAudioDocument(name, mimeType)) {
+                    Uri documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childId);
+                    scanned.add(createSongFromDocument(documentUri, name, size));
+                }
+            }
+        } catch (SecurityException ignored) {
+            Toast.makeText(this, "需要目录读取权限", Toast.LENGTH_SHORT).show();
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+    }
+
+    private Song createSongFromDocument(Uri documentUri, String displayName, long size) {
+        String safeName = isEmpty(displayName) ? "未知音频" : displayName;
+        return new Song(
+            safeName,
+            "所选目录 / 子目录",
+            readAudioDuration(documentUri),
+            formatSize(size),
+            documentUri
+        );
+    }
+
+    private String readAudioDuration(Uri documentUri) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        try {
+            retriever.setDataSource(this, documentUri);
+            String duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            if (!isEmpty(duration)) {
+                return formatDuration(Long.parseLong(duration));
+            }
+        } catch (RuntimeException ignored) {
+            // Some document providers do not expose metadata streams reliably.
+        } finally {
+            try {
+                retriever.release();
+            } catch (IOException ignored) {
+            }
+        }
+        return "--:--";
+    }
+
+    private static boolean isAudioDocument(String name, String mimeType) {
+        if (mimeType != null && mimeType.startsWith("audio/")) return true;
+        if (name == null) return false;
+        String lowerName = name.toLowerCase(Locale.US);
+        return lowerName.endsWith(".mp3")
+            || lowerName.endsWith(".m4a")
+            || lowerName.endsWith(".aac")
+            || lowerName.endsWith(".wav")
+            || lowerName.endsWith(".flac")
+            || lowerName.endsWith(".ogg");
+    }
+
     private void loadSamples() {
         songs.clear();
         Song first = new Song("星际漫游.mp3", "手机存储 / Music / Synthwave", "03:48", "8.6 MB", null);
@@ -358,23 +484,21 @@ public class MainActivity extends Activity {
     }
 
     private void renderAll() {
-        renderList(libraryList, false);
+        renderList(allSongList, false);
         renderList(favoriteList, true);
     }
 
     private void renderList(LinearLayout container, boolean favoritesOnly) {
         container.removeAllViews();
-        int count = 0;
-        for (int i = 0; i < songs.size(); i++) {
-            Song song = songs.get(i);
-            if (favoritesOnly && !song.favorite) continue;
-            container.addView(createSongCard(song, i));
-            count++;
+        List<Integer> indices = sortedSongIndices(favoritesOnly);
+        for (int i = 0; i < indices.size(); i++) {
+            int songIndex = indices.get(i);
+            container.addView(createSongCard(songs.get(songIndex), songIndex, favoritesOnly));
         }
 
-        if (count == 0) {
+        if (indices.isEmpty()) {
             TextView empty = new TextView(this);
-            empty.setText("暂无收藏音乐");
+            empty.setText(favoritesOnly ? "暂无收藏音乐" : "暂无本地音乐");
             empty.setTextColor(getResources().getColor(R.color.nova_muted));
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(18), dp(28), dp(18), dp(28));
@@ -386,7 +510,26 @@ public class MainActivity extends Activity {
         }
     }
 
-    private View createSongCard(final Song song, final int index) {
+    private List<Integer> sortedSongIndices(final boolean favoritesOnly) {
+        List<Integer> indices = new ArrayList<>();
+        for (int i = 0; i < songs.size(); i++) {
+            if (!favoritesOnly || songs.get(i).favorite) {
+                indices.add(i);
+            }
+        }
+        Collections.sort(indices, new Comparator<Integer>() {
+            @Override
+            public int compare(Integer left, Integer right) {
+                Song leftSong = songs.get(left);
+                Song rightSong = songs.get(right);
+                int result = titleCollator.compare(leftSong.title, rightSong.title);
+                return result != 0 ? result : left - right;
+            }
+        });
+        return indices;
+    }
+
+    private View createSongCard(final Song song, final int index, final boolean favoritesOnly) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -446,7 +589,12 @@ public class MainActivity extends Activity {
         row.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                selectSong(index, false);
+                if (favoritesOnly) {
+                    activateFavoriteQueue(index);
+                    selectSong(index, false, true);
+                } else {
+                    selectSong(index, false);
+                }
                 closeDrawer();
             }
         });
@@ -460,7 +608,16 @@ public class MainActivity extends Activity {
     }
 
     private void selectSong(int index, boolean start) {
+        selectSong(index, start, false);
+    }
+
+    private void selectSong(int index, boolean start, boolean keepQueue) {
         if (index < 0 || index >= songs.size()) return;
+        if (!keepQueue) {
+            activeQueue.clear();
+            activeQueuePosition = -1;
+            favoriteQueueActive = false;
+        }
         currentIndex = index;
         Song song = songs.get(index);
         trackTitle.setText(song.title);
@@ -479,6 +636,9 @@ public class MainActivity extends Activity {
         Song song = songs.get(index);
         song.favorite = !song.favorite;
         favoriteButton.setBackgroundResource(songs.get(currentIndex).favorite ? R.drawable.bg_favorite_button : R.drawable.bg_control_button);
+        if (favoriteQueueActive) {
+            refreshFavoriteQueue();
+        }
         renderAll();
     }
 
@@ -548,12 +708,44 @@ public class MainActivity extends Activity {
     }
 
     private void playPrevious() {
+        if (favoriteQueueActive) {
+            refreshFavoriteQueue();
+            if (activeQueue.isEmpty()) {
+                Toast.makeText(this, "暂无收藏音乐", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            activeQueuePosition = activeQueuePosition <= 0 ? activeQueue.size() - 1 : activeQueuePosition - 1;
+            selectSong(activeQueue.get(activeQueuePosition), true, true);
+            return;
+        }
         int next = currentIndex - 1;
         if (next < 0) next = songs.size() - 1;
         selectSong(next, true);
     }
 
     private void playNext(boolean manual) {
+        if (favoriteQueueActive) {
+            refreshFavoriteQueue();
+            if (activeQueue.isEmpty()) {
+                Toast.makeText(this, "暂无收藏音乐", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!manual && modeIndex == 2) {
+                selectSong(activeQueue.get(activeQueuePosition), true, true);
+                return;
+            }
+            if (modeIndex == 0 && activeQueue.size() > 1) {
+                int nextQueuePosition = random.nextInt(activeQueue.size());
+                if (nextQueuePosition == activeQueuePosition) {
+                    nextQueuePosition = (nextQueuePosition + 1) % activeQueue.size();
+                }
+                activeQueuePosition = nextQueuePosition;
+            } else {
+                activeQueuePosition = (activeQueuePosition + 1) % activeQueue.size();
+            }
+            selectSong(activeQueue.get(activeQueuePosition), true, true);
+            return;
+        }
         int next;
         if (!manual && modeIndex == 2) {
             next = currentIndex;
@@ -615,25 +807,134 @@ public class MainActivity extends Activity {
         updateProgressWidth(progress);
     }
 
+    private void openSettingsDrawer() {
+        configureSettingsDrawer();
+        drawerTitle.setText("设置");
+        drawerSubtitle.setText("目录 / 播放控制");
+        playlistContent.setVisibility(View.GONE);
+        settingsContent.setVisibility(View.VISIBLE);
+        openDrawer();
+    }
+
+    private void openPlaylistDrawer() {
+        configurePlaylistDrawer();
+        drawerTitle.setText("歌单");
+        drawerSubtitle.setText("全部音乐 / 收藏音乐");
+        settingsContent.setVisibility(View.GONE);
+        playlistContent.setVisibility(View.VISIBLE);
+        showPlaylistPanel(false);
+        renderAll();
+        openDrawer();
+    }
+
+    private void showPlaylistPanel(boolean favoritesOnly) {
+        panelAllSongs.setVisibility(favoritesOnly ? View.GONE : View.VISIBLE);
+        panelFavoriteSongs.setVisibility(favoritesOnly ? View.VISIBLE : View.GONE);
+        tabAllSongs.setBackgroundResource(favoritesOnly ? R.drawable.bg_control_button : R.drawable.bg_control_button_active);
+        tabFavoriteSongs.setBackgroundResource(favoritesOnly ? R.drawable.bg_control_button_active : R.drawable.bg_control_button);
+    }
+
+    private void playFirstFromList(boolean favoritesOnly) {
+        List<Integer> indices = sortedSongIndices(favoritesOnly);
+        if (indices.isEmpty()) {
+            Toast.makeText(this, favoritesOnly ? "暂无收藏音乐" : "暂无本地音乐", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (favoritesOnly) {
+            activateFavoriteQueue(indices.get(0));
+            selectSong(activeQueue.get(activeQueuePosition), true, true);
+        } else {
+            selectSong(indices.get(0), true);
+        }
+        closeDrawer();
+    }
+
+    private void activateFavoriteQueue(int selectedIndex) {
+        favoriteQueueActive = true;
+        activeQueue.clear();
+        activeQueue.addAll(sortedSongIndices(true));
+        activeQueuePosition = activeQueue.indexOf(selectedIndex);
+        if (activeQueuePosition < 0 && !activeQueue.isEmpty()) {
+            activeQueuePosition = 0;
+        }
+    }
+
+    private void refreshFavoriteQueue() {
+        if (!favoriteQueueActive) return;
+        activeQueue.clear();
+        activeQueue.addAll(sortedSongIndices(true));
+        activeQueuePosition = activeQueue.indexOf(currentIndex);
+        if (activeQueuePosition < 0 && !activeQueue.isEmpty()) {
+            activeQueuePosition = 0;
+        }
+    }
+
+    private void configureSettingsDrawer() {
+        drawerFromBottom = false;
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) menuDrawer.getLayoutParams();
+        params.width = dp(340);
+        params.height = FrameLayout.LayoutParams.MATCH_PARENT;
+        params.gravity = Gravity.START;
+        menuDrawer.setLayoutParams(params);
+        menuDrawer.setTranslationX(0);
+        menuDrawer.setTranslationY(0);
+        menuDrawer.smoothScrollTo(0, 0);
+    }
+
+    private void configurePlaylistDrawer() {
+        drawerFromBottom = true;
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) menuDrawer.getLayoutParams();
+        int screenHeight = getResources().getDisplayMetrics().heightPixels;
+        params.width = FrameLayout.LayoutParams.MATCH_PARENT;
+        params.height = Math.min(Math.max(dp(420), screenHeight - dp(96)), dp(640));
+        params.gravity = Gravity.BOTTOM;
+        menuDrawer.setLayoutParams(params);
+        menuDrawer.setTranslationX(0);
+        menuDrawer.smoothScrollTo(0, 0);
+    }
+
     private void openDrawer() {
         scrim.setVisibility(View.VISIBLE);
+        menuDrawer.animate().cancel();
+        if (drawerFromBottom) {
+            menuDrawer.setTranslationY(getResources().getDisplayMetrics().heightPixels);
+        } else {
+            menuDrawer.setTranslationY(0);
+        }
         menuDrawer.setVisibility(View.VISIBLE);
+        if (drawerFromBottom) {
+            menuDrawer.post(new Runnable() {
+                @Override
+                public void run() {
+                    menuDrawer.setTranslationY(menuDrawer.getHeight());
+                    menuDrawer.animate()
+                        .translationY(0)
+                        .setDuration(180)
+                        .start();
+                }
+            });
+        }
     }
 
     private void closeDrawer() {
         scrim.setVisibility(View.GONE);
-        menuDrawer.setVisibility(View.GONE);
-    }
-
-    private void showPanel(View panel, ImageButton tab) {
-        panelLibrary.setVisibility(panel == panelLibrary ? View.VISIBLE : View.GONE);
-        panelFavorites.setVisibility(panel == panelFavorites ? View.VISIBLE : View.GONE);
-        panelFolders.setVisibility(panel == panelFolders ? View.VISIBLE : View.GONE);
-        panelSettings.setVisibility(panel == panelSettings ? View.VISIBLE : View.GONE);
-        tabLibrary.setBackgroundResource(tab == tabLibrary ? R.drawable.bg_control_button_active : R.drawable.bg_control_button);
-        tabFavorites.setBackgroundResource(tab == tabFavorites ? R.drawable.bg_control_button_active : R.drawable.bg_control_button);
-        tabFolders.setBackgroundResource(tab == tabFolders ? R.drawable.bg_control_button_active : R.drawable.bg_control_button);
-        tabSettings.setBackgroundResource(tab == tabSettings ? R.drawable.bg_control_button_active : R.drawable.bg_control_button);
+        menuDrawer.animate().cancel();
+        if (drawerFromBottom && menuDrawer.getVisibility() == View.VISIBLE) {
+            menuDrawer.animate()
+                .translationY(menuDrawer.getHeight())
+                .setDuration(160)
+                .withEndAction(new Runnable() {
+                    @Override
+                    public void run() {
+                        menuDrawer.setVisibility(View.GONE);
+                        menuDrawer.setTranslationY(0);
+                    }
+                })
+                .start();
+        } else {
+            menuDrawer.setVisibility(View.GONE);
+            menuDrawer.setTranslationY(0);
+        }
     }
 
     @Override
@@ -646,6 +947,7 @@ public class MainActivity extends Activity {
                     & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 getContentResolver().takePersistableUriPermission(treeUri, flags);
                 folderPath.setText(treeUri.toString());
+                scanSelectedFolder(treeUri);
                 Toast.makeText(this, "已设置音乐目录", Toast.LENGTH_SHORT).show();
             }
         }
