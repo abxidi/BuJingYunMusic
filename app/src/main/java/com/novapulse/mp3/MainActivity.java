@@ -15,6 +15,7 @@ import android.provider.MediaStore;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -50,6 +51,8 @@ public class MainActivity extends Activity {
     private ImageButton favoriteButton;
     private View progressFill;
     private FrameLayout progressTrack;
+    private LinearLayout playerPage;
+    private LinearLayout drawerContent;
     private View scrim;
     private ScrollView menuDrawer;
     private LinearLayout libraryList;
@@ -86,6 +89,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         bindViews();
+        applySystemBarInsets();
         bindActions();
         loadSamples();
         requestAudioPermissionIfNeeded();
@@ -95,6 +99,8 @@ public class MainActivity extends Activity {
     }
 
     private void bindViews() {
+        playerPage = findViewById(R.id.playerPage);
+        drawerContent = findViewById(R.id.drawerContent);
         trackTitle = findViewById(R.id.tvTrackTitle);
         trackMeta = findViewById(R.id.tvTrackMeta);
         durationText = findViewById(R.id.tvDuration);
@@ -119,6 +125,40 @@ public class MainActivity extends Activity {
         tabFavorites = findViewById(R.id.tabFavorites);
         tabFolders = findViewById(R.id.tabFolders);
         tabSettings = findViewById(R.id.tabSettings);
+    }
+
+    private void applySystemBarInsets() {
+        final View root = findViewById(R.id.root);
+        final int playerStart = playerPage.getPaddingStart();
+        final int playerTop = playerPage.getPaddingTop();
+        final int playerEnd = playerPage.getPaddingEnd();
+        final int playerBottom = playerPage.getPaddingBottom();
+        final int drawerStart = drawerContent.getPaddingStart();
+        final int drawerTop = drawerContent.getPaddingTop();
+        final int drawerEnd = drawerContent.getPaddingEnd();
+        final int drawerBottom = drawerContent.getPaddingBottom();
+
+        root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override
+            public WindowInsets onApplyWindowInsets(View view, WindowInsets insets) {
+                int topInset = insets.getSystemWindowInsetTop();
+                int bottomInset = insets.getSystemWindowInsetBottom();
+                playerPage.setPaddingRelative(
+                    playerStart,
+                    Math.max(playerTop, topInset),
+                    playerEnd,
+                    Math.max(playerBottom, bottomInset)
+                );
+                drawerContent.setPaddingRelative(
+                    drawerStart,
+                    Math.max(drawerTop, topInset),
+                    drawerEnd,
+                    Math.max(drawerBottom, bottomInset)
+                );
+                return insets;
+            }
+        });
+        root.requestApplyInsets();
     }
 
     private void bindActions() {
