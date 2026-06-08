@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -50,6 +51,7 @@ public class MainActivity extends Activity {
     private ImageButton playButton;
     private ImageButton favoriteButton;
     private View progressFill;
+    private FrameLayout progressTouchArea;
     private FrameLayout progressTrack;
     private LinearLayout playerPage;
     private LinearLayout drawerContent;
@@ -112,6 +114,7 @@ public class MainActivity extends Activity {
         playButton = findViewById(R.id.btnPlay);
         favoriteButton = findViewById(R.id.btnFavorite);
         progressFill = findViewById(R.id.progressFill);
+        progressTouchArea = findViewById(R.id.progressTouchArea);
         progressTrack = findViewById(R.id.progressTrack);
         scrim = findViewById(R.id.scrim);
         menuDrawer = findViewById(R.id.menuDrawer);
@@ -190,6 +193,19 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View view) {
                 togglePlay();
+            }
+        });
+        progressTouchArea.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                int action = event.getAction();
+                if (action == MotionEvent.ACTION_DOWN
+                    || action == MotionEvent.ACTION_MOVE
+                    || action == MotionEvent.ACTION_UP) {
+                    seekToProgressTouch(event.getX());
+                    return true;
+                }
+                return action == MotionEvent.ACTION_CANCEL;
             }
         });
         findViewById(R.id.btnPrevious).setOnClickListener(new View.OnClickListener() {
@@ -475,11 +491,13 @@ public class MainActivity extends Activity {
 
         if (mediaPlayer != null && prepared && mediaPlayer.isPlaying()) {
             mediaPlayer.pause();
+            updatePlayButton();
             return;
         }
 
         if (mediaPlayer != null && prepared) {
             mediaPlayer.start();
+            updatePlayButton();
             return;
         }
 
@@ -494,6 +512,7 @@ public class MainActivity extends Activity {
             public void onPrepared(MediaPlayer player) {
                 prepared = true;
                 player.start();
+                updatePlayButton();
             }
         });
         mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -519,6 +538,13 @@ public class MainActivity extends Activity {
             mediaPlayer.release();
             mediaPlayer = null;
         }
+        updatePlayButton();
+    }
+
+    private void updatePlayButton() {
+        boolean isPlaying = mediaPlayer != null && prepared && mediaPlayer.isPlaying();
+        playButton.setImageResource(isPlaying ? R.drawable.ic_pause : R.drawable.ic_play);
+        playButton.setContentDescription(isPlaying ? "暂停" : "播放");
     }
 
     private void playPrevious() {
@@ -574,6 +600,19 @@ public class MainActivity extends Activity {
                 progressFill.setLayoutParams(params);
             }
         });
+    }
+
+    private void seekToProgressTouch(float touchX) {
+        if (mediaPlayer == null || !prepared) return;
+        int duration = mediaPlayer.getDuration();
+        int width = progressTrack.getWidth();
+        if (duration <= 0 || width <= 0) return;
+
+        float progress = Math.max(0f, Math.min(1f, touchX / width));
+        int position = Math.min(duration, Math.max(0, (int) (duration * progress)));
+        mediaPlayer.seekTo(position);
+        elapsedText.setText(formatDuration(position));
+        updateProgressWidth(progress);
     }
 
     private void openDrawer() {

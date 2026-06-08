@@ -18,30 +18,6 @@
         android:paddingBottom="22dp">
 
         <LinearLayout
-            android:id="@+id/statusLine"
-            android:layout_width="match_parent"
-            android:layout_height="28dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/tvClock"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="09:41"
-                android:textColor="@color/nova_soft"
-                android:textSize="12sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="5G"
-                android:textColor="@color/nova_soft"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <LinearLayout
             android:id="@+id/topBar"
             android:layout_width="match_parent"
             android:layout_height="64dp"
@@ -212,17 +188,26 @@
                 android:textSize="12sp" />
 
             <FrameLayout
-                android:id="@+id/progressTrack"
+                android:id="@+id/progressTouchArea"
                 android:layout_width="0dp"
-                android:layout_height="6dp"
+                android:layout_height="24dp"
                 android:layout_weight="1"
-                android:background="@drawable/bg_progress_track">
+                android:clickable="true"
+                android:contentDescription="播放进度">
 
-                <View
-                    android:id="@+id/progressFill"
-                    android:layout_width="1dp"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/bg_progress_fill" />
+                <FrameLayout
+                    android:id="@+id/progressTrack"
+                    android:layout_width="match_parent"
+                    android:layout_height="6dp"
+                    android:layout_gravity="center_vertical"
+                    android:background="@drawable/bg_progress_track">
+
+                    <View
+                        android:id="@+id/progressFill"
+                        android:layout_width="1dp"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_progress_fill" />
+                </FrameLayout>
             </FrameLayout>
 
             <TextView
@@ -244,6 +229,7 @@
             android:id="@+id/controlRow"
             android:layout_width="match_parent"
             android:layout_height="82dp"
+            android:layout_marginBottom="10dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 

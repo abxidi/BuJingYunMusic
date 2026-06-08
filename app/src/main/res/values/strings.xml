@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">NovaPulse</string>
+    <string name="app_name">步惊云音乐</string>
     <string name="screen_subtitle">本地 MP3 全屏播放</string>
     <string name="track_title">星际漫游.mp3</string>
     <string name="track_meta">手机存储 / Music / Synthwave</string>
@@ -8,4 +8,3 @@
     <string name="menu_subtitle">曲库 / 收藏 / 目录 / 设置</string>
     <string name="pick_folder">选择手机存储目录</string>
 </resources>
-
