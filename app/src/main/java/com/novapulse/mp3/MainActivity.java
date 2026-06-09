@@ -1,6 +1,10 @@
 package com.novapulse.mp3;
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.ContentUris;
 import android.content.Intent;
@@ -20,6 +24,8 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -59,9 +65,11 @@ public class MainActivity extends Activity {
     private ImageView modeIcon;
     private ImageButton playButton;
     private ImageButton favoriteButton;
+    private View disc;
     private View progressFill;
     private FrameLayout progressTouchArea;
     private FrameLayout progressTrack;
+    private LinearLayout visualizer;
     private LinearLayout playerPage;
     private LinearLayout drawerContent;
     private View scrim;
@@ -78,6 +86,8 @@ public class MainActivity extends Activity {
     private TextView tabFavoriteSongs;
 
     private MediaPlayer mediaPlayer;
+    private ObjectAnimator discAnimator;
+    private AnimatorSet visualizerAnimator;
     private int currentIndex;
     private int activeQueuePosition = -1;
     private int modeIndex;
@@ -125,9 +135,11 @@ public class MainActivity extends Activity {
         modeIcon = findViewById(R.id.ivMode);
         playButton = findViewById(R.id.btnPlay);
         favoriteButton = findViewById(R.id.btnFavorite);
+        disc = findViewById(R.id.disc);
         progressFill = findViewById(R.id.progressFill);
         progressTouchArea = findViewById(R.id.progressTouchArea);
         progressTrack = findViewById(R.id.progressTrack);
+        visualizer = findViewById(R.id.visualizer);
         scrim = findViewById(R.id.scrim);
         menuDrawer = findViewById(R.id.menuDrawer);
         drawerTitle = findViewById(R.id.drawerTitle);
@@ -714,6 +726,82 @@ public class MainActivity extends Activity {
         boolean isPlaying = mediaPlayer != null && prepared && mediaPlayer.isPlaying();
         playButton.setImageResource(isPlaying ? R.drawable.ic_pause : R.drawable.ic_play);
         playButton.setContentDescription(isPlaying ? "暂停" : "播放");
+        updatePlayerMotion(isPlaying);
+    }
+
+    private void updatePlayerMotion(boolean isPlaying) {
+        if (isPlaying) {
+            startDiscRotation();
+            startVisualizerMotion();
+        } else {
+            stopDiscRotation();
+            stopVisualizerMotion();
+        }
+    }
+
+    private void startDiscRotation() {
+        if (discAnimator != null && discAnimator.isStarted()) return;
+        float startRotation = disc.getRotation();
+        discAnimator = ObjectAnimator.ofFloat(disc, "rotation", startRotation, startRotation + 360f);
+        discAnimator.setDuration(9000);
+        discAnimator.setInterpolator(new LinearInterpolator());
+        discAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        discAnimator.setRepeatMode(ValueAnimator.RESTART);
+        discAnimator.start();
+    }
+
+    private void stopDiscRotation() {
+        if (discAnimator == null) return;
+        discAnimator.cancel();
+        discAnimator = null;
+    }
+
+    private void startVisualizerMotion() {
+        if (visualizerAnimator != null && visualizerAnimator.isStarted()) return;
+        if (visualizer.getWidth() == 0) {
+            visualizer.post(new Runnable() {
+                @Override
+                public void run() {
+                    boolean isPlaying = mediaPlayer != null && prepared && mediaPlayer.isPlaying();
+                    if (isPlaying) startVisualizerMotion();
+                }
+            });
+            return;
+        }
+
+        List<Animator> animators = new ArrayList<>();
+        float[] minScales = {0.45f, 0.7f, 0.35f, 0.58f, 0.5f};
+        int[] durations = {360, 420, 330, 390, 450};
+        int[] delays = {0, 70, 120, 40, 150};
+        int barCount = Math.min(visualizer.getChildCount(), minScales.length);
+        for (int index = 0; index < barCount; index++) {
+            View bar = visualizer.getChildAt(index);
+            bar.setPivotX(bar.getWidth() / 2f);
+            bar.setPivotY(bar.getHeight());
+            ObjectAnimator scale = ObjectAnimator.ofFloat(bar, "scaleY", minScales[index], 1f);
+            scale.setDuration(durations[index]);
+            scale.setStartDelay(delays[index]);
+            scale.setRepeatCount(ValueAnimator.INFINITE);
+            scale.setRepeatMode(ValueAnimator.REVERSE);
+            scale.setInterpolator(new AccelerateDecelerateInterpolator());
+            animators.add(scale);
+        }
+
+        visualizerAnimator = new AnimatorSet();
+        visualizerAnimator.playTogether(animators);
+        visualizerAnimator.start();
+    }
+
+    private void stopVisualizerMotion() {
+        if (visualizerAnimator != null) {
+            visualizerAnimator.cancel();
+            visualizerAnimator = null;
+        }
+        for (int index = 0; index < visualizer.getChildCount(); index++) {
+            View bar = visualizer.getChildAt(index);
+            bar.setScaleY(1f);
+            bar.setAlpha(1f);
+        }
     }
 
     private void playPrevious() {
