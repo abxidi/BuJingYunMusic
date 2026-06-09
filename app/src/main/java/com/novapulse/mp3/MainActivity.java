@@ -10,8 +10,12 @@ import android.content.ContentUris;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaMetadataRetriever;
+import android.media.session.MediaSession;
+import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -54,6 +58,18 @@ public class MainActivity extends Activity {
     private final Handler handler = new Handler();
     private final Random random = new Random();
     private final Collator titleCollator = Collator.getInstance(Locale.CHINA);
+    private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener =
+        new AudioManager.OnAudioFocusChangeListener() {
+            @Override
+            public void onAudioFocusChange(final int focusChange) {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        handleAudioFocusChange(focusChange);
+                    }
+                });
+            }
+        };
 
     private TextView trackTitle;
     private TextView trackMeta;
@@ -88,12 +104,16 @@ public class MainActivity extends Activity {
     private MediaPlayer mediaPlayer;
     private ObjectAnimator discAnimator;
     private AnimatorSet visualizerAnimator;
+    private AudioManager audioManager;
+    private MediaSession mediaSession;
     private int currentIndex;
     private int activeQueuePosition = -1;
     private int modeIndex;
     private boolean prepared;
     private boolean drawerFromBottom;
     private boolean favoriteQueueActive;
+    private boolean hasAudioFocus;
+    private boolean resumeOnAudioFocusGain;
 
     private final Runnable progressUpdater = new Runnable() {
         @Override
@@ -113,6 +133,8 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         bindViews();
+        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        initMediaSession();
         applySystemBarInsets();
         bindActions();
         loadSamples();
@@ -289,6 +311,67 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void initMediaSession() {
+        mediaSession = new MediaSession(this, "BuJingYunMusic");
+        mediaSession.setFlags(
+            MediaSession.FLAG_HANDLES_MEDIA_BUTTONS
+                | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS
+        );
+        mediaSession.setCallback(new MediaSession.Callback() {
+            @Override
+            public void onPlay() {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!isPlaybackActive()) togglePlay();
+                    }
+                });
+            }
+
+            @Override
+            public void onPause() {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        pausePlayback(false);
+                    }
+                });
+            }
+
+            @Override
+            public void onSkipToPrevious() {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        playPrevious();
+                    }
+                });
+            }
+
+            @Override
+            public void onSkipToNext() {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        playNext(true);
+                    }
+                });
+            }
+
+            @Override
+            public void onStop() {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        resetPlayer();
+                    }
+                });
+            }
+        });
+        mediaSession.setActive(true);
+        updateMediaSessionState();
+    }
+
     private void requestAudioPermissionIfNeeded() {
         String permission = Build.VERSION.SDK_INT >= 33
             ? Manifest.permission.READ_MEDIA_AUDIO
@@ -353,7 +436,7 @@ public class MainActivity extends Activity {
 
                 if (duration <= 0) continue;
 
-                String safeTitle = isEmpty(title) ? displayName : title + ".mp3";
+                String safeTitle = isEmpty(displayName) ? title : displayName;
                 String safeArtist = isEmpty(artist) ? "手机存储" : artist;
                 scanned.add(new Song(safeTitle, "手机存储 / Music / " + safeArtist, formatDuration(duration), formatSize(size), uri));
             }
@@ -478,8 +561,17 @@ public class MainActivity extends Activity {
             || lowerName.endsWith(".m4a")
             || lowerName.endsWith(".aac")
             || lowerName.endsWith(".wav")
+            || lowerName.endsWith(".wave")
             || lowerName.endsWith(".flac")
-            || lowerName.endsWith(".ogg");
+            || lowerName.endsWith(".alac")
+            || lowerName.endsWith(".aif")
+            || lowerName.endsWith(".aiff")
+            || lowerName.endsWith(".ogg")
+            || lowerName.endsWith(".oga")
+            || lowerName.endsWith(".opus")
+            || lowerName.endsWith(".amr")
+            || lowerName.endsWith(".3gp")
+            || lowerName.endsWith(".wma");
     }
 
     private void loadSamples() {
@@ -671,12 +763,12 @@ public class MainActivity extends Activity {
         }
 
         if (mediaPlayer != null && prepared && mediaPlayer.isPlaying()) {
-            mediaPlayer.pause();
-            updatePlayButton();
+            pausePlayback(false);
             return;
         }
 
         if (mediaPlayer != null && prepared) {
+            if (!requestPlaybackFocus()) return;
             mediaPlayer.start();
             updatePlayButton();
             return;
@@ -687,12 +779,19 @@ public class MainActivity extends Activity {
 
     private void prepareAndPlay(Song song) {
         resetPlayer();
+        if (!requestPlaybackFocus()) return;
         mediaPlayer = new MediaPlayer();
+        mediaPlayer.setAudioAttributes(new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build());
         mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer player) {
                 prepared = true;
-                player.start();
+                if (hasAudioFocus) {
+                    player.start();
+                }
                 updatePlayButton();
             }
         });
@@ -714,6 +813,7 @@ public class MainActivity extends Activity {
 
     private void resetPlayer() {
         prepared = false;
+        abandonPlaybackFocus();
         if (mediaPlayer != null) {
             mediaPlayer.reset();
             mediaPlayer.release();
@@ -722,11 +822,101 @@ public class MainActivity extends Activity {
         updatePlayButton();
     }
 
+    private void pausePlayback(boolean keepAudioFocus) {
+        if (mediaPlayer != null && prepared && mediaPlayer.isPlaying()) {
+            mediaPlayer.pause();
+        }
+        if (!keepAudioFocus) {
+            abandonPlaybackFocus();
+        }
+        updatePlayButton();
+    }
+
+    private boolean isPlaybackActive() {
+        return mediaPlayer != null && prepared && mediaPlayer.isPlaying();
+    }
+
+    private boolean requestPlaybackFocus() {
+        if (audioManager == null || hasAudioFocus) return true;
+        int result = audioManager.requestAudioFocus(
+            audioFocusChangeListener,
+            AudioManager.STREAM_MUSIC,
+            AudioManager.AUDIOFOCUS_GAIN
+        );
+        hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        if (!hasAudioFocus) {
+            Toast.makeText(this, "暂时无法获取音频播放权限", Toast.LENGTH_SHORT).show();
+        }
+        return hasAudioFocus;
+    }
+
+    private void abandonPlaybackFocus() {
+        resumeOnAudioFocusGain = false;
+        if (audioManager != null) {
+            audioManager.abandonAudioFocus(audioFocusChangeListener);
+        }
+        hasAudioFocus = false;
+    }
+
+    private void handleAudioFocusChange(int focusChange) {
+        if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+            hasAudioFocus = true;
+            if (mediaPlayer != null) {
+                mediaPlayer.setVolume(1f, 1f);
+            }
+            if (resumeOnAudioFocusGain && mediaPlayer != null && prepared) {
+                resumeOnAudioFocusGain = false;
+                mediaPlayer.start();
+            }
+            updatePlayButton();
+            return;
+        }
+
+        boolean wasPlaying = isPlaybackActive();
+        hasAudioFocus = false;
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
+            || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+            resumeOnAudioFocusGain = wasPlaying;
+            pausePlayback(true);
+        } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+            resumeOnAudioFocusGain = false;
+            pausePlayback(true);
+            abandonPlaybackFocus();
+        }
+    }
+
     private void updatePlayButton() {
-        boolean isPlaying = mediaPlayer != null && prepared && mediaPlayer.isPlaying();
+        boolean isPlaying = isPlaybackActive();
         playButton.setImageResource(isPlaying ? R.drawable.ic_pause : R.drawable.ic_play);
         playButton.setContentDescription(isPlaying ? "暂停" : "播放");
         updatePlayerMotion(isPlaying);
+        updateMediaSessionState();
+    }
+
+    private void updateMediaSessionState() {
+        if (mediaSession == null) return;
+        boolean isPlaying = isPlaybackActive();
+        int state = prepared
+            ? (isPlaying ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED)
+            : PlaybackState.STATE_STOPPED;
+        long position = 0L;
+        if (mediaPlayer != null && prepared) {
+            try {
+                position = mediaPlayer.getCurrentPosition();
+            } catch (IllegalStateException ignored) {
+                position = 0L;
+            }
+        }
+        long actions = PlaybackState.ACTION_PLAY
+            | PlaybackState.ACTION_PAUSE
+            | PlaybackState.ACTION_PLAY_PAUSE
+            | PlaybackState.ACTION_SKIP_TO_PREVIOUS
+            | PlaybackState.ACTION_SKIP_TO_NEXT
+            | PlaybackState.ACTION_STOP;
+        mediaSession.setPlaybackState(new PlaybackState.Builder()
+            .setActions(actions)
+            .setState(state, position, isPlaying ? 1f : 0f)
+            .build());
     }
 
     private void updatePlayerMotion(boolean isPlaying) {
@@ -1036,6 +1226,15 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    public void onBackPressed() {
+        if (menuDrawer.getVisibility() == View.VISIBLE) {
+            closeDrawer();
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_FOLDER && resultCode == RESULT_OK && data != null) {
@@ -1055,6 +1254,11 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         handler.removeCallbacks(progressUpdater);
         resetPlayer();
+        if (mediaSession != null) {
+            mediaSession.setActive(false);
+            mediaSession.release();
+            mediaSession = null;
+        }
         super.onDestroy();
     }
 
