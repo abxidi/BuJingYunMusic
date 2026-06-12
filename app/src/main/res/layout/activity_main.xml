@@ -255,8 +255,8 @@
 
                 <ImageView
                     android:id="@+id/ivMode"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:src="@drawable/ic_shuffle" />
             </LinearLayout>
 

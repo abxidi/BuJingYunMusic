@@ -8,6 +8,7 @@ import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.ContentUris;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.media.AudioAttributes;
@@ -43,15 +44,19 @@ import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_AUDIO_PERMISSION = 1001;
     private static final int REQUEST_FOLDER = 1002;
     private static final int MAX_TREE_SCAN_COUNT = 500;
     private static final int MAX_TREE_SCAN_DEPTH = 16;
+    private static final String PREFS_NAME = "bu_jing_yun_music";
+    private static final String PREF_FAVORITE_KEYS = "favorite_song_keys";
 
     private final List<Song> songs = new ArrayList<>();
     private final List<Integer> activeQueue = new ArrayList<>();
@@ -106,6 +111,7 @@ public class MainActivity extends Activity {
     private AnimatorSet visualizerAnimator;
     private AudioManager audioManager;
     private MediaSession mediaSession;
+    private SharedPreferences preferences;
     private int currentIndex;
     private int activeQueuePosition = -1;
     private int modeIndex;
@@ -132,6 +138,7 @@ public class MainActivity extends Activity {
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         setContentView(R.layout.activity_main);
 
+        preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         bindViews();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         initMediaSession();
@@ -449,7 +456,7 @@ public class MainActivity extends Activity {
         if (!scanned.isEmpty()) {
             songs.clear();
             songs.addAll(scanned);
-            songs.get(0).favorite = true;
+            applyPersistedFavorites();
             currentIndex = 0;
             folderCount.setText("已读取 " + songs.size() + " 首音频");
             renderAll();
@@ -473,6 +480,7 @@ public class MainActivity extends Activity {
 
         songs.clear();
         songs.addAll(scanned);
+        applyPersistedFavorites();
         currentIndex = 0;
         activeQueue.clear();
         activeQueuePosition = -1;
@@ -577,13 +585,12 @@ public class MainActivity extends Activity {
     private void loadSamples() {
         songs.clear();
         Song first = new Song("星际漫游.mp3", "手机存储 / Music / Synthwave", "03:48", "8.6 MB", null);
-        first.favorite = true;
         Song third = new Song("月面通讯.mp3", "手机存储 / Music / Ambient", "02:57", "7.1 MB", null);
-        third.favorite = true;
         songs.add(first);
         songs.add(new Song("霓虹低频.mp3", "手机存储 / Downloads / Bass", "04:12", "11.2 MB", null));
         songs.add(third);
         songs.add(new Song("反应堆心跳.mp3", "手机存储 / Music / Cyber", "03:26", "9.4 MB", null));
+        applyPersistedFavorites();
         folderCount.setText("等待授权后读取本机音频");
     }
 
@@ -739,11 +746,41 @@ public class MainActivity extends Activity {
         if (index < 0 || index >= songs.size()) return;
         Song song = songs.get(index);
         song.favorite = !song.favorite;
+        persistFavorite(song);
         applyFavoriteButtonStyle(favoriteButton, songs.get(currentIndex).favorite);
         if (favoriteQueueActive) {
             refreshFavoriteQueue();
         }
         renderAll();
+    }
+
+    private void applyPersistedFavorites() {
+        Set<String> favoriteKeys = loadFavoriteKeys();
+        for (Song song : songs) {
+            song.favorite = favoriteKeys.contains(favoriteKey(song));
+        }
+    }
+
+    private void persistFavorite(Song song) {
+        Set<String> favoriteKeys = loadFavoriteKeys();
+        String key = favoriteKey(song);
+        if (song.favorite) {
+            favoriteKeys.add(key);
+        } else {
+            favoriteKeys.remove(key);
+        }
+        preferences.edit().putStringSet(PREF_FAVORITE_KEYS, favoriteKeys).apply();
+    }
+
+    private Set<String> loadFavoriteKeys() {
+        return new HashSet<>(preferences.getStringSet(PREF_FAVORITE_KEYS, new HashSet<String>()));
+    }
+
+    private String favoriteKey(Song song) {
+        if (song.uri != null) {
+            return song.uri.toString();
+        }
+        return song.title + "|" + song.meta;
     }
 
     private void applyFavoriteButtonStyle(ImageButton button, boolean favorite) {
@@ -1054,7 +1091,7 @@ public class MainActivity extends Activity {
             modeIcon.setImageResource(R.drawable.ic_repeat);
             modeButton.setContentDescription("循环播放");
         } else {
-            modeIcon.setImageResource(R.drawable.ic_repeat);
+            modeIcon.setImageResource(R.drawable.ic_repeat_one);
             modeButton.setContentDescription("单曲循环");
         }
     }
