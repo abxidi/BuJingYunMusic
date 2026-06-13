@@ -11,6 +11,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -57,6 +59,7 @@ public class MainActivity extends Activity {
     private static final int MAX_TREE_SCAN_DEPTH = 16;
     private static final String PREFS_NAME = "bu_jing_yun_music";
     private static final String PREF_FAVORITE_KEYS = "favorite_song_keys";
+    private static final String PREF_UI_STYLE = "ui_style";
 
     private final List<Song> songs = new ArrayList<>();
     private final List<Integer> activeQueue = new ArrayList<>();
@@ -80,13 +83,16 @@ public class MainActivity extends Activity {
     private TextView trackMeta;
     private TextView durationText;
     private TextView elapsedText;
+    private View root;
     private View modeButton;
     private TextView folderPath;
     private TextView folderCount;
     private ImageView modeIcon;
     private ImageButton playButton;
     private ImageButton favoriteButton;
+    private View discOrbit;
     private View disc;
+    private ThemeVisualizerView themeVisualizer;
     private View progressFill;
     private FrameLayout progressTouchArea;
     private FrameLayout progressTrack;
@@ -105,6 +111,10 @@ public class MainActivity extends Activity {
     private LinearLayout panelFavoriteSongs;
     private TextView tabAllSongs;
     private TextView tabFavoriteSongs;
+    private TextView themeClassic;
+    private TextView themeLiquid;
+    private TextView themeGalaxy;
+    private TextView themeRadar;
 
     private MediaPlayer mediaPlayer;
     private ObjectAnimator discAnimator;
@@ -115,6 +125,7 @@ public class MainActivity extends Activity {
     private int currentIndex;
     private int activeQueuePosition = -1;
     private int modeIndex;
+    private int uiStyle = ThemeVisualizerView.STYLE_CLASSIC;
     private boolean prepared;
     private boolean drawerFromBottom;
     private boolean favoriteQueueActive;
@@ -140,10 +151,12 @@ public class MainActivity extends Activity {
 
         preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         bindViews();
+        uiStyle = preferences.getInt(PREF_UI_STYLE, ThemeVisualizerView.STYLE_CLASSIC);
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         initMediaSession();
         applySystemBarInsets();
         bindActions();
+        applyUiStyle(uiStyle, false);
         loadSamples();
         requestAudioPermissionIfNeeded();
         renderAll();
@@ -152,6 +165,7 @@ public class MainActivity extends Activity {
     }
 
     private void bindViews() {
+        root = findViewById(R.id.root);
         playerPage = findViewById(R.id.playerPage);
         drawerContent = findViewById(R.id.drawerContent);
         trackTitle = findViewById(R.id.tvTrackTitle);
@@ -164,7 +178,9 @@ public class MainActivity extends Activity {
         modeIcon = findViewById(R.id.ivMode);
         playButton = findViewById(R.id.btnPlay);
         favoriteButton = findViewById(R.id.btnFavorite);
+        discOrbit = findViewById(R.id.discOrbit);
         disc = findViewById(R.id.disc);
+        themeVisualizer = findViewById(R.id.themeVisualizer);
         progressFill = findViewById(R.id.progressFill);
         progressTouchArea = findViewById(R.id.progressTouchArea);
         progressTrack = findViewById(R.id.progressTrack);
@@ -181,6 +197,10 @@ public class MainActivity extends Activity {
         panelFavoriteSongs = findViewById(R.id.panelFavoriteSongs);
         tabAllSongs = findViewById(R.id.tabAllSongs);
         tabFavoriteSongs = findViewById(R.id.tabFavoriteSongs);
+        themeClassic = findViewById(R.id.themeClassic);
+        themeLiquid = findViewById(R.id.themeLiquid);
+        themeGalaxy = findViewById(R.id.themeGalaxy);
+        themeRadar = findViewById(R.id.themeRadar);
     }
 
     private void applySystemBarInsets() {
@@ -316,6 +336,30 @@ public class MainActivity extends Activity {
                 startActivityForResult(intent, REQUEST_FOLDER);
             }
         });
+        themeClassic.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                applyUiStyle(ThemeVisualizerView.STYLE_CLASSIC, true);
+            }
+        });
+        themeLiquid.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                applyUiStyle(ThemeVisualizerView.STYLE_LIQUID, true);
+            }
+        });
+        themeGalaxy.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                applyUiStyle(ThemeVisualizerView.STYLE_GALAXY, true);
+            }
+        });
+        themeRadar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                applyUiStyle(ThemeVisualizerView.STYLE_RADAR, true);
+            }
+        });
     }
 
     private void initMediaSession() {
@@ -377,6 +421,213 @@ public class MainActivity extends Activity {
         });
         mediaSession.setActive(true);
         updateMediaSessionState();
+    }
+
+    private void applyUiStyle(int style, boolean persist) {
+        if (style < ThemeVisualizerView.STYLE_CLASSIC || style > ThemeVisualizerView.STYLE_RADAR) {
+            style = ThemeVisualizerView.STYLE_CLASSIC;
+        }
+        uiStyle = style;
+        if (persist) {
+            preferences.edit().putInt(PREF_UI_STYLE, uiStyle).apply();
+        }
+        discOrbit.setPadding(0, 0, 0, 0);
+
+        if (uiStyle == ThemeVisualizerView.STYLE_CLASSIC) {
+            root.setBackgroundResource(R.drawable.bg_player);
+            discOrbit.setBackgroundColor(Color.TRANSPARENT);
+            disc.setVisibility(View.VISIBLE);
+            disc.setBackgroundResource(R.drawable.bg_disc);
+            progressTrack.setBackgroundResource(R.drawable.bg_progress_track);
+            progressFill.setBackgroundResource(R.drawable.bg_progress_fill);
+            getWindow().setStatusBarColor(getResources().getColor(R.color.nova_bg));
+            getWindow().setNavigationBarColor(getResources().getColor(R.color.nova_bg));
+        } else {
+            root.setBackground(makeRootBackground());
+            discOrbit.setBackgroundColor(Color.TRANSPARENT);
+            disc.setVisibility(View.GONE);
+            progressTrack.setBackground(makeProgressTrackBackground());
+            progressFill.setBackground(makeProgressFillBackground());
+            getWindow().setStatusBarColor(themeRootStart());
+            getWindow().setNavigationBarColor(themeRootEnd());
+        }
+
+        themeVisualizer.setUiStyle(uiStyle);
+        themeVisualizer.setPlaying(isPlaybackActive());
+        applyStaticThemeBackgrounds();
+        updateThemeTabs();
+        updatePlayerMotion(isPlaybackActive());
+        if (!songs.isEmpty()) {
+            applyFavoriteButtonStyle(favoriteButton, songs.get(currentIndex).favorite);
+            renderAll();
+        }
+    }
+
+    private void applyStaticThemeBackgrounds() {
+        setControlBackground(findViewById(R.id.btnMenu), false);
+        setControlBackground(modeButton, false);
+        setControlBackground(findViewById(R.id.btnPrevious), false);
+        setControlBackground(findViewById(R.id.btnNext), false);
+        setControlBackground(findViewById(R.id.btnPlaylist), false);
+        setControlBackground(findViewById(R.id.btnCloseDrawer), false);
+        setPlayBackground(findViewById(R.id.btnPlay));
+        setPlayBackground(findViewById(R.id.btnPickFolder));
+        setPlayBackground(findViewById(R.id.btnPlayAllSongs));
+        setPlayBackground(findViewById(R.id.btnPlayFavoriteSongs));
+        if (uiStyle == ThemeVisualizerView.STYLE_CLASSIC) {
+            settingsContent.setBackgroundResource(R.drawable.bg_panel);
+            menuDrawer.setBackgroundResource(R.drawable.bg_drawer);
+        } else {
+            settingsContent.setBackground(makePanelBackground(false));
+            menuDrawer.setBackground(makePanelBackground(false));
+        }
+        applyVisualizerBarTheme();
+        showPlaylistPanel(panelFavoriteSongs.getVisibility() == View.VISIBLE);
+    }
+
+    private void updateThemeTabs() {
+        setControlBackground(themeClassic, uiStyle == ThemeVisualizerView.STYLE_CLASSIC);
+        setControlBackground(themeLiquid, uiStyle == ThemeVisualizerView.STYLE_LIQUID);
+        setControlBackground(themeGalaxy, uiStyle == ThemeVisualizerView.STYLE_GALAXY);
+        setControlBackground(themeRadar, uiStyle == ThemeVisualizerView.STYLE_RADAR);
+    }
+
+    private void setControlBackground(View view, boolean active) {
+        if (view == null) return;
+        if (uiStyle == ThemeVisualizerView.STYLE_CLASSIC) {
+            view.setBackgroundResource(active ? R.drawable.bg_control_button_active : R.drawable.bg_control_button);
+            return;
+        }
+        int fill = active ? themeActiveFill() : themePanelFill();
+        int stroke = active ? themeAccent() : themeLine();
+        view.setBackground(makeRoundedBackground(fill, stroke, 18));
+    }
+
+    private void setPlayBackground(View view) {
+        if (view == null) return;
+        if (uiStyle == ThemeVisualizerView.STYLE_CLASSIC) {
+            view.setBackgroundResource(R.drawable.bg_play_button);
+            return;
+        }
+        GradientDrawable background = new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[] { themeAccent(), themeAccentAlt() }
+        );
+        background.setCornerRadius(dp(24));
+        view.setBackground(background);
+    }
+
+    private void setSongCardBackground(View view, boolean active) {
+        if (uiStyle == ThemeVisualizerView.STYLE_CLASSIC) {
+            view.setBackgroundResource(active ? R.drawable.bg_control_button_active : R.drawable.bg_song_card);
+            return;
+        }
+        view.setBackground(makeRoundedBackground(
+            active ? themeActiveFill() : themePanelFill(),
+            active ? themeAccent() : withAlpha(themeLine(), 145),
+            18
+        ));
+    }
+
+    private GradientDrawable makeRootBackground() {
+        return new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[] { themeRootStart(), themeRootCenter(), themeRootEnd() }
+        );
+    }
+
+    private GradientDrawable makePanelBackground(boolean strong) {
+        return makeRoundedBackground(strong ? themePanelStrongFill() : themePanelFill(), themeLine(), 18);
+    }
+
+    private GradientDrawable makeProgressTrackBackground() {
+        return makeRoundedBackground(withAlpha(Color.BLACK, 95), withAlpha(themeLine(), 110), 6);
+    }
+
+    private GradientDrawable makeProgressFillBackground() {
+        GradientDrawable drawable = new GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            new int[] { themeAccent(), themeAccentAlt() }
+        );
+        drawable.setCornerRadius(dp(6));
+        return drawable;
+    }
+
+    private GradientDrawable makeRoundedBackground(int fill, int stroke, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(fill);
+        drawable.setStroke(dp(1), stroke);
+        drawable.setCornerRadius(dp(radiusDp));
+        return drawable;
+    }
+
+    private void applyVisualizerBarTheme() {
+        for (int i = 0; i < visualizer.getChildCount(); i++) {
+            View bar = visualizer.getChildAt(i);
+            if (uiStyle == ThemeVisualizerView.STYLE_CLASSIC) {
+                bar.setBackgroundResource(R.drawable.bg_progress_fill);
+            } else {
+                bar.setBackground(makeProgressFillBackground());
+            }
+        }
+    }
+
+    private int themeRootStart() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(13, 8, 14);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(2, 19, 16);
+        return Color.rgb(3, 7, 18);
+    }
+
+    private int themeRootCenter() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(33, 15, 28);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(4, 42, 32);
+        return Color.rgb(12, 16, 42);
+    }
+
+    private int themeRootEnd() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(18, 10, 5);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(1, 8, 9);
+        return Color.rgb(20, 7, 44);
+    }
+
+    private int themePanelFill() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(185, 34, 24, 30);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(190, 5, 40, 31);
+        return Color.argb(185, 13, 18, 44);
+    }
+
+    private int themePanelStrongFill() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(210, 42, 31, 33);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(214, 4, 52, 39);
+        return Color.argb(210, 16, 22, 55);
+    }
+
+    private int themeActiveFill() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(78, 255, 197, 108);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(86, 78, 255, 177);
+        return Color.argb(78, 113, 144, 255);
+    }
+
+    private int themeLine() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(170, 244, 180, 89);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(185, 86, 255, 190);
+        return Color.argb(170, 112, 232, 255);
+    }
+
+    private int themeAccent() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(255, 211, 119);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(90, 255, 187);
+        return Color.rgb(105, 232, 255);
+    }
+
+    private int themeAccentAlt() {
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(255, 93, 159);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(202, 255, 85);
+        return Color.rgb(186, 122, 255);
+    }
+
+    private int withAlpha(int color, int alpha) {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
     }
 
     private void requestAudioPermissionIfNeeded() {
@@ -645,7 +896,7 @@ public class MainActivity extends Activity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setPadding(dp(10), dp(10), dp(10), dp(10));
-        row.setBackgroundResource(index == currentIndex ? R.drawable.bg_control_button_active : R.drawable.bg_song_card);
+        setSongCardBackground(row, index == currentIndex);
 
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -784,12 +1035,12 @@ public class MainActivity extends Activity {
     }
 
     private void applyFavoriteButtonStyle(ImageButton button, boolean favorite) {
-        button.setBackgroundResource(favoriteButtonBackground(favorite));
+        if (favorite) {
+            button.setBackgroundResource(R.drawable.bg_favorite_button);
+        } else {
+            setControlBackground(button, false);
+        }
         button.setColorFilter(getResources().getColor(favorite ? R.color.nova_pink : android.R.color.white));
-    }
-
-    private int favoriteButtonBackground(boolean favorite) {
-        return favorite ? R.drawable.bg_favorite_button : R.drawable.bg_control_button;
     }
 
     private void togglePlay() {
@@ -957,11 +1208,15 @@ public class MainActivity extends Activity {
     }
 
     private void updatePlayerMotion(boolean isPlaying) {
-        if (isPlaying) {
+        themeVisualizer.setPlaying(isPlaying);
+        if (uiStyle == ThemeVisualizerView.STYLE_CLASSIC && isPlaying) {
             startDiscRotation();
-            startVisualizerMotion();
         } else {
             stopDiscRotation();
+        }
+        if (isPlaying) {
+            startVisualizerMotion();
+        } else {
             stopVisualizerMotion();
         }
     }
@@ -1154,8 +1409,8 @@ public class MainActivity extends Activity {
     private void showPlaylistPanel(boolean favoritesOnly) {
         panelAllSongs.setVisibility(favoritesOnly ? View.GONE : View.VISIBLE);
         panelFavoriteSongs.setVisibility(favoritesOnly ? View.VISIBLE : View.GONE);
-        tabAllSongs.setBackgroundResource(favoritesOnly ? R.drawable.bg_control_button : R.drawable.bg_control_button_active);
-        tabFavoriteSongs.setBackgroundResource(favoritesOnly ? R.drawable.bg_control_button_active : R.drawable.bg_control_button);
+        setControlBackground(tabAllSongs, !favoritesOnly);
+        setControlBackground(tabFavoriteSongs, favoritesOnly);
     }
 
     private void playFirstFromList(boolean favoritesOnly) {

@@ -81,9 +81,7 @@
             android:id="@+id/discOrbit"
             android:layout_width="328dp"
             android:layout_height="328dp"
-            android:layout_gravity="center_horizontal"
-            android:background="@drawable/bg_panel"
-            android:padding="24dp">
+            android:layout_gravity="center_horizontal">
 
             <FrameLayout
                 android:id="@+id/disc"
@@ -91,6 +89,13 @@
                 android:layout_height="match_parent"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_disc" />
+
+            <com.novapulse.mp3.ThemeVisualizerView
+                android:id="@+id/themeVisualizer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:visibility="gone" />
         </FrameLayout>
 
         <FrameLayout
@@ -557,6 +562,81 @@
                     android:text="暗场动态频谱"
                     android:textColor="@color/nova_ink"
                     android:textSize="14sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="UI 样式"
+                    android:textColor="@color/nova_muted"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/themeTabs"
+                    android:layout_width="match_parent"
+                    android:layout_height="42dp"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/themeClassic"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_control_button_active"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:text="霓虹"
+                        android:textColor="@color/nova_ink"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/themeLiquid"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_control_button"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:text="液态"
+                        android:textColor="@color/nova_ink"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/themeGalaxy"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_control_button"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:text="银河"
+                        android:textColor="@color/nova_ink"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/themeRadar"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_control_button"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:text="雷达"
+                        android:textColor="@color/nova_ink"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
