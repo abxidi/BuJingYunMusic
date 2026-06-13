@@ -539,12 +539,6 @@ public class ThemeVisualizerView extends View {
                 paint.setColor(Color.argb(alpha, 230, 255, 244));
             }
             drawRadarNote(canvas, x, y, target.arm, target.size * sweepBoost, paint, alpha);
-
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(radius * 0.0035f);
-            paint.setColor(Color.argb(Math.min(170, alpha), 91, 255, 187));
-            canvas.drawCircle(x, y, target.size * (2.2f + sweepBoost), paint);
-            paint.setStyle(Paint.Style.FILL);
         }
     }
 
