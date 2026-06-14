@@ -254,7 +254,6 @@ public class ThemeVisualizerView extends View {
         float size = safeVisualSize(width, height);
         float radius = size * 0.49f;
         float beat = playing ? wave(phase * 2.25f) : wave(phase * 0.55f);
-        float pulse = playing ? 1f + 0.035f * beat : 1f + 0.006f * beat;
         float rotation = phase * (playing ? 0.042f : 0.01f);
 
         paint.setStyle(Paint.Style.FILL);
@@ -271,14 +270,10 @@ public class ThemeVisualizerView extends View {
             new float[] {0f, 0.22f, 0.64f, 1f},
             Shader.TileMode.CLAMP
         ));
-        canvas.drawCircle(centerX, centerY, radius * 0.78f * pulse, paint);
+        canvas.drawCircle(centerX, centerY, radius * 0.78f, paint);
         paint.setShader(null);
 
-        canvas.save();
-        canvas.scale(pulse, pulse, centerX, centerY);
         drawRippleDotField(canvas, centerX, centerY, radius, rotation, beat);
-        canvas.restore();
-
         drawRippleCenterGlow(canvas, centerX, centerY, radius, beat);
     }
 
@@ -288,10 +283,7 @@ public class ThemeVisualizerView extends View {
         paint.setMaskFilter(null);
 
         float dotGap = radius * 0.039f;
-        float innerBand = radius * (0.35f + 0.018f * beat);
-        float innerThickness = radius * 0.18f;
-        float outerBand = radius * (0.82f + 0.026f * beat);
-        float outerThickness = radius * 0.22f;
+        float waveSpeed = playing ? phase * 0.075f : phase * 0.018f;
         float maxGrid = radius * 1.02f;
 
         for (float y = -maxGrid; y <= maxGrid; y += dotGap) {
@@ -299,16 +291,14 @@ public class ThemeVisualizerView extends View {
                 float distance = (float) Math.sqrt(x * x + y * y);
                 if (distance > radius || distance < radius * 0.08f) continue;
 
-                float innerStrength = rippleBandStrength(distance, innerBand, innerThickness);
-                float outerStrength = rippleBandStrength(distance, outerBand, outerThickness);
-                float strength = Math.max(innerStrength, outerStrength);
+                float strength = rippleExpansionStrength(distance, radius, waveSpeed);
                 if (strength <= 0.01f) continue;
 
                 float angle = (float) Math.atan2(y, x);
                 float traveling = wave(angle * 2.35f - rotation * 14f + distance / radius * 5.8f);
                 float shimmer = wave(phase * (playing ? 1.8f : 0.45f) + x * 0.013f + y * 0.017f);
                 float glow = 0.42f + 0.58f * traveling;
-                float alphaUnit = strength * (0.25f + 0.48f * glow + 0.27f * shimmer);
+                float alphaUnit = strength * (0.28f + 0.46f * glow + 0.26f * shimmer);
                 alphaUnit *= playing ? (0.84f + 0.34f * beat) : 0.78f;
                 int alpha = Math.min(245, Math.max(16, (int) (205f * alphaUnit)));
                 float dotRadius = radius * (0.0065f + 0.0038f * strength + (playing ? 0.002f * beat * glow : 0f));
@@ -324,10 +314,31 @@ public class ThemeVisualizerView extends View {
         }
     }
 
+    private float rippleExpansionStrength(float distance, float radius, float waveOffset) {
+        float best = 0f;
+        float inner = radius * 0.14f;
+        float span = radius * 0.82f;
+        float thickness = radius * (playing ? 0.105f : 0.085f);
+        for (int i = 0; i < 4; i++) {
+            float progress = fract(waveOffset + i * 0.25f);
+            float bandRadius = inner + span * progress;
+            float band = rippleBandStrength(distance, bandRadius, thickness);
+            float edgeFade = (float) Math.sin(progress * Math.PI);
+            float centerFade = Math.min(1f, progress / 0.18f);
+            float strength = band * edgeFade * centerFade;
+            if (strength > best) best = strength;
+        }
+        return best;
+    }
+
     private float rippleBandStrength(float distance, float bandRadius, float thickness) {
         float unit = Math.abs(distance - bandRadius) / thickness;
         if (unit >= 1f) return 0f;
         return 1f - unit * unit * (3f - 2f * unit);
+    }
+
+    private float fract(float value) {
+        return value - (float) Math.floor(value);
     }
 
     private void drawRippleCenterGlow(Canvas canvas, float centerX, float centerY, float radius, float beat) {
