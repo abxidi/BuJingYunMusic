@@ -3,12 +3,15 @@
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_player">
+    android:background="@drawable/bg_player"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <LinearLayout
         android:id="@+id/playerPage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipChildren="false"
         android:clipToPadding="false"
         android:gravity="center_horizontal"
         android:orientation="vertical"
@@ -81,7 +84,9 @@
             android:id="@+id/discOrbit"
             android:layout_width="328dp"
             android:layout_height="328dp"
-            android:layout_gravity="center_horizontal">
+            android:layout_gravity="center_horizontal"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
             <FrameLayout
                 android:id="@+id/disc"
@@ -92,8 +97,8 @@
 
             <com.novapulse.mp3.ThemeVisualizerView
                 android:id="@+id/themeVisualizer"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_width="420dp"
+                android:layout_height="420dp"
                 android:layout_gravity="center"
                 android:visibility="gone" />
         </FrameLayout>
@@ -607,7 +612,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
-                        android:text="液态"
+                        android:text="泡沫"
                         android:textColor="@color/nova_ink"
                         android:textSize="13sp"
                         android:textStyle="bold" />

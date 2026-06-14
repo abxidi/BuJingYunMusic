@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.BlurMaskFilter;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RadialGradient;
@@ -166,58 +167,111 @@ public class ThemeVisualizerView extends View {
         float height = getHeight();
         float centerX = width / 2f;
         float centerY = height / 2f;
-        float size = Math.min(width, height);
-        float beat = playing ? 0.012f * wave(phase * 2.2f) : 0.006f * wave(phase);
-        float baseRadius = size * (0.425f + beat);
+        float size = safeVisualSize(width, height);
+        float beat = playing ? wave(phase * 2.4f) : wave(phase * 0.7f);
+        float radius = size * (0.43f + (playing ? 0.022f * beat : 0.006f * beat));
+        float drift = playing ? phase * 0.09f : phase * 0.018f;
 
         liquidPath.reset();
-        int points = 112;
-        for (int i = 0; i <= points; i++) {
-            float unit = i / (float) points;
-            float angle = unit * (float) Math.PI * 2f;
-            float ripple = 1f
-                + 0.052f * (float) Math.sin(angle * 3f + phase * 1.3f)
-                + 0.035f * (float) Math.sin(angle * 7f - phase * 0.85f)
-                + (playing ? 0.025f * (float) Math.sin(angle * 11f + phase * 2.6f) : 0f);
-            float radius = baseRadius * ripple;
-            float x = centerX + (float) Math.cos(angle) * radius;
-            float y = centerY + (float) Math.sin(angle) * radius;
-            if (i == 0) {
-                liquidPath.moveTo(x, y);
-            } else {
-                liquidPath.lineTo(x, y);
-            }
-        }
-        liquidPath.close();
+        liquidPath.addCircle(centerX, centerY, radius, Path.Direction.CW);
 
-        int pink = Color.rgb(255, 93, 159);
-        int gold = Color.rgb(255, 211, 119);
-        int mint = Color.rgb(109, 255, 191);
-        int cyan = Color.rgb(88, 222, 255);
-        int violet = Color.rgb(178, 118, 255);
-        paint.setShader(new SweepGradient(centerX, centerY, new int[] {
-            gold, pink, violet, cyan, mint, gold
-        }, null));
-        paint.setAlpha(245);
+        glowPaint.setStyle(Paint.Style.FILL);
+        glowPaint.setMaskFilter(new BlurMaskFilter(radius * 0.09f, BlurMaskFilter.Blur.NORMAL));
+        glowPaint.setColor(Color.argb(135 + (int) (46f * beat), 200, 24, 255));
+        canvas.drawCircle(centerX, centerY, radius * 1.02f, glowPaint);
+        glowPaint.setColor(Color.argb(70 + (int) (40f * beat), 72, 170, 255));
+        canvas.drawCircle(centerX - radius * 0.04f, centerY + radius * 0.02f, radius * 0.96f, glowPaint);
+        glowPaint.setMaskFilter(null);
+
         paint.setStyle(Paint.Style.FILL);
-        canvas.drawPath(liquidPath, paint);
-        paint.setAlpha(255);
+        paint.setShader(new RadialGradient(
+            centerX - radius * 0.42f,
+            centerY + radius * 0.1f,
+            radius * 1.38f,
+            new int[] {
+                Color.argb(255, 245, 252, 238),
+                Color.argb(244, 160, 226, 244),
+                Color.argb(232, 218, 38, 232),
+                Color.argb(224, 88, 12, 116),
+                Color.argb(236, 10, 4, 20)
+            },
+            new float[] {0f, 0.22f, 0.48f, 0.73f, 1f},
+            Shader.TileMode.CLAMP
+        ));
+        canvas.drawCircle(centerX, centerY, radius, paint);
         paint.setShader(null);
+
+        canvas.save();
+        canvas.clipPath(liquidPath);
+
+        paint.setShader(new LinearGradient(
+            centerX - radius,
+            centerY - radius * 0.76f + (float) Math.sin(drift) * radius * 0.24f,
+            centerX + radius,
+            centerY + radius * 0.86f + (float) Math.cos(drift * 0.8f) * radius * 0.2f,
+            new int[] {
+                Color.argb(22, 0, 0, 0),
+                Color.argb(120, 120, 55, 255),
+                Color.argb(168, 255, 35, 210),
+                Color.argb(180, 226, 246, 232),
+                Color.argb(126, 255, 171, 62),
+                Color.argb(64, 70, 8, 32)
+            },
+            new float[] {0f, 0.18f, 0.35f, 0.56f, 0.76f, 1f},
+            Shader.TileMode.CLAMP
+        ));
+        canvas.drawCircle(centerX, centerY, radius * 1.02f, paint);
+        paint.setShader(null);
+
+        paint.setShader(new RadialGradient(
+            centerX + (float) Math.sin(drift * 1.7f) * radius * 0.38f,
+            centerY - radius * 0.04f + (float) Math.cos(drift * 1.2f) * radius * 0.24f,
+            radius * 0.75f,
+            Color.argb(100 + (int) (44f * beat), 255, 0, 226),
+            Color.TRANSPARENT,
+            Shader.TileMode.CLAMP
+        ));
+        canvas.drawCircle(centerX, centerY, radius * 0.95f, paint);
+        paint.setShader(null);
+
+        paint.setShader(new RadialGradient(
+            centerX + (float) Math.cos(drift * 1.35f) * radius * 0.32f,
+            centerY + radius * 0.26f + (float) Math.sin(drift * 1.05f) * radius * 0.2f,
+            radius * 0.58f,
+            Color.argb(96 + (int) (54f * beat), 255, 172, 58),
+            Color.TRANSPARENT,
+            Shader.TileMode.CLAMP
+        ));
+        canvas.drawCircle(centerX, centerY, radius * 0.92f, paint);
+        paint.setShader(null);
+
+        paint.setShader(new RadialGradient(
+            centerX - radius * 0.52f,
+            centerY + radius * 0.08f,
+            radius * 0.56f,
+            Color.argb(210, 244, 255, 236),
+            Color.TRANSPARENT,
+            Shader.TileMode.CLAMP
+        ));
+        canvas.drawCircle(centerX - radius * 0.28f, centerY + radius * 0.08f, radius * 0.78f, paint);
+        paint.setShader(null);
+
+        canvas.restore();
 
         glowPaint.setStyle(Paint.Style.FILL);
         glowPaint.setShader(new RadialGradient(
-            centerX - baseRadius * 0.28f,
-            centerY - baseRadius * 0.38f,
-            baseRadius * 0.72f,
-            Color.argb(150, 255, 255, 255),
+            centerX - radius * 0.42f,
+            centerY - radius * 0.32f,
+            radius * 0.56f,
+            Color.argb(118, 255, 255, 255),
             Color.TRANSPARENT,
             Shader.TileMode.CLAMP
         ));
         scratchOval.set(
-            centerX - baseRadius * 0.68f,
-            centerY - baseRadius * 0.72f,
-            centerX + baseRadius * 0.18f,
-            centerY + baseRadius * 0.12f
+            centerX - radius * 0.72f,
+            centerY - radius * 0.68f,
+            centerX + radius * 0.08f,
+            centerY + radius * 0.12f
         );
         canvas.drawOval(scratchOval, glowPaint);
         glowPaint.setShader(null);
@@ -228,7 +282,7 @@ public class ThemeVisualizerView extends View {
         float height = getHeight();
         float centerX = width / 2f;
         float centerY = height / 2f;
-        float size = Math.min(width, height);
+        float size = safeVisualSize(width, height);
         float maxRadius = size * 0.47f;
         float pulse = playing ? 1f + 0.11f * wave(phase * 1.75f) : 1f;
         float rotation = phase * (playing ? 0.055f : 0.025f);
@@ -421,7 +475,7 @@ public class ThemeVisualizerView extends View {
         float height = getHeight();
         float centerX = width / 2f;
         float centerY = height / 2f;
-        float size = Math.min(width, height);
+        float size = safeVisualSize(width, height);
         float radius = size * 0.485f;
         float sweepAngle = radarSweepAngle;
 
@@ -455,9 +509,9 @@ public class ThemeVisualizerView extends View {
         paint.setStrokeCap(Paint.Cap.BUTT);
         for (int ring = 1; ring <= 4; ring++) {
             float unit = ring / 4f;
-            int alpha = ring == 4 ? 145 : 58;
+            int alpha = ring == 4 ? 120 : 58;
             paint.setColor(Color.argb(alpha, 80, 255, 184));
-            paint.setStrokeWidth(radius * (ring == 4 ? 0.004f : 0.0022f));
+            paint.setStrokeWidth(radius * (ring == 4 ? 0.0032f : 0.0022f));
             canvas.drawCircle(centerX, centerY, radius * unit, paint);
         }
     }
@@ -579,6 +633,10 @@ public class ThemeVisualizerView extends View {
         if (result > 180f) result -= 360f;
         if (result < -180f) result += 360f;
         return result;
+    }
+
+    private float safeVisualSize(float width, float height) {
+        return Math.min(width, height) * 0.78f;
     }
 
     private float wave(float value) {
