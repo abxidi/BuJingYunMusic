@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="@color/nova_panel_soft" />
+    <gradient
+        android:angle="135"
+        android:startColor="#F01D3442"
+        android:centerColor="#EA162432"
+        android:endColor="#F00B1420" />
     <stroke
         android:width="1dp"
-        android:color="@color/nova_line" />
+        android:color="#C8EAFBFF" />
     <corners android:radius="18dp" />
 </shape>
-

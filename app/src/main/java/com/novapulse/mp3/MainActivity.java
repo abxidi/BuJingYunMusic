@@ -227,7 +227,7 @@ public class MainActivity extends Activity {
                 );
                 drawerContent.setPaddingRelative(
                     drawerStart,
-                    Math.max(drawerTop, topInset),
+                    drawerTop,
                     drawerEnd,
                     Math.max(drawerBottom, bottomInset)
                 );
@@ -537,7 +537,17 @@ public class MainActivity extends Activity {
     }
 
     private GradientDrawable makePanelBackground(boolean strong) {
-        return makeRoundedBackground(strong ? themePanelStrongFill() : themePanelFill(), themeLine(), 18);
+        GradientDrawable drawable = new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[] {
+                strong ? themePanelStrongFill() : themePanelFill(),
+                withAlpha(themeAccent(), strong ? 76 : 52),
+                strong ? themePanelFill() : withAlpha(Color.BLACK, 214)
+            }
+        );
+        drawable.setStroke(dp(1), withAlpha(themeAccent(), strong ? 232 : 205));
+        drawable.setCornerRadius(dp(22));
+        return drawable;
     }
 
     private GradientDrawable makeProgressTrackBackground() {
@@ -591,15 +601,15 @@ public class MainActivity extends Activity {
     }
 
     private int themePanelFill() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(185, 34, 24, 30);
-        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(190, 5, 40, 31);
-        return Color.argb(185, 13, 18, 44);
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(240, 31, 25, 34);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(240, 5, 44, 34);
+        return Color.argb(240, 12, 18, 44);
     }
 
     private int themePanelStrongFill() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(210, 42, 31, 33);
-        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(214, 4, 52, 39);
-        return Color.argb(210, 16, 22, 55);
+        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(248, 43, 33, 40);
+        if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(248, 4, 56, 43);
+        return Color.argb(248, 16, 23, 58);
     }
 
     private int themeActiveFill() {
