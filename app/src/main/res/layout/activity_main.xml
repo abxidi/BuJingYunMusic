@@ -627,7 +627,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
-                        android:text="银河"
+                        android:text="波纹"
                         android:textColor="@color/nova_ink"
                         android:textSize="13sp"
                         android:textStyle="bold" />

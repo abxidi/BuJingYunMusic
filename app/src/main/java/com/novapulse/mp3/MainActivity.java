@@ -585,55 +585,55 @@ public class MainActivity extends Activity {
     private int themeRootStart() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(3, 2, 8);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(2, 19, 16);
-        return Color.rgb(3, 7, 18);
+        return Color.rgb(1, 1, 2);
     }
 
     private int themeRootCenter() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(18, 6, 28);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(4, 42, 32);
-        return Color.rgb(12, 16, 42);
+        return Color.rgb(13, 14, 17);
     }
 
     private int themeRootEnd() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(8, 3, 16);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(1, 8, 9);
-        return Color.rgb(20, 7, 44);
+        return Color.rgb(0, 0, 0);
     }
 
     private int themePanelFill() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(242, 24, 11, 33);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(240, 5, 44, 34);
-        return Color.argb(240, 12, 18, 44);
+        return Color.argb(242, 14, 15, 18);
     }
 
     private int themePanelStrongFill() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(250, 37, 14, 48);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(248, 4, 56, 43);
-        return Color.argb(248, 16, 23, 58);
+        return Color.argb(250, 24, 25, 29);
     }
 
     private int themeActiveFill() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(94, 255, 48, 218);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(86, 78, 255, 177);
-        return Color.argb(78, 113, 144, 255);
+        return Color.argb(96, 245, 247, 250);
     }
 
     private int themeLine() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(205, 230, 120, 255);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(185, 86, 255, 190);
-        return Color.argb(170, 112, 232, 255);
+        return Color.argb(172, 214, 218, 224);
     }
 
     private int themeAccent() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(255, 45, 222);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(90, 255, 187);
-        return Color.rgb(105, 232, 255);
+        return Color.rgb(245, 247, 250);
     }
 
     private int themeAccentAlt() {
         if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(255, 205, 102);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(202, 255, 85);
-        return Color.rgb(186, 122, 255);
+        return Color.rgb(142, 148, 158);
     }
 
     private int withAlpha(int color, int alpha) {
