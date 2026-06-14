@@ -262,8 +262,8 @@ public class ThemeVisualizerView extends View {
             centerY,
             radius * 1.08f,
             new int[] {
-                Color.argb(78 + (int) (54f * beat), 255, 255, 255),
-                Color.argb(34, 132, 136, 146),
+                Color.argb(24 + (int) (22f * beat), 245, 247, 250),
+                Color.argb(28, 132, 136, 146),
                 Color.argb(12, 42, 44, 50),
                 Color.TRANSPARENT
             },
@@ -274,7 +274,6 @@ public class ThemeVisualizerView extends View {
         paint.setShader(null);
 
         drawRippleDotField(canvas, centerX, centerY, radius, rotation, beat);
-        drawRippleCenterGlow(canvas, centerX, centerY, radius, beat);
     }
 
     private void drawRippleDotField(Canvas canvas, float centerX, float centerY, float radius, float rotation, float beat) {
@@ -283,13 +282,13 @@ public class ThemeVisualizerView extends View {
         paint.setMaskFilter(null);
 
         float dotGap = radius * 0.039f;
-        float waveSpeed = playing ? phase * 0.075f : phase * 0.018f;
+        float waveSpeed = playing ? phase * 0.027f : phase * 0.008f;
         float maxGrid = radius * 1.02f;
 
         for (float y = -maxGrid; y <= maxGrid; y += dotGap) {
             for (float x = -maxGrid; x <= maxGrid; x += dotGap) {
                 float distance = (float) Math.sqrt(x * x + y * y);
-                if (distance > radius || distance < radius * 0.08f) continue;
+                if (distance > radius || distance < radius * 0.015f) continue;
 
                 float strength = rippleExpansionStrength(distance, radius, waveSpeed);
                 if (strength <= 0.01f) continue;
@@ -316,15 +315,15 @@ public class ThemeVisualizerView extends View {
 
     private float rippleExpansionStrength(float distance, float radius, float waveOffset) {
         float best = 0f;
-        float inner = radius * 0.14f;
-        float span = radius * 0.82f;
-        float thickness = radius * (playing ? 0.105f : 0.085f);
-        for (int i = 0; i < 4; i++) {
-            float progress = fract(waveOffset + i * 0.25f);
+        float inner = radius * 0.035f;
+        float span = radius * 0.925f;
+        float thickness = radius * (playing ? 0.13f : 0.105f);
+        for (int i = 0; i < 3; i++) {
+            float progress = fract(waveOffset + i / 3f);
             float bandRadius = inner + span * progress;
             float band = rippleBandStrength(distance, bandRadius, thickness);
             float edgeFade = (float) Math.sin(progress * Math.PI);
-            float centerFade = Math.min(1f, progress / 0.18f);
+            float centerFade = Math.min(1f, progress / 0.12f);
             float strength = band * edgeFade * centerFade;
             if (strength > best) best = strength;
         }
@@ -339,27 +338,6 @@ public class ThemeVisualizerView extends View {
 
     private float fract(float value) {
         return value - (float) Math.floor(value);
-    }
-
-    private void drawRippleCenterGlow(Canvas canvas, float centerX, float centerY, float radius, float beat) {
-        glowPaint.setStyle(Paint.Style.FILL);
-        glowPaint.setShader(null);
-        glowPaint.setMaskFilter(new BlurMaskFilter(radius * 0.04f, BlurMaskFilter.Blur.NORMAL));
-        glowPaint.setColor(Color.argb(60 + (int) (48f * beat), 255, 255, 255));
-        canvas.drawCircle(centerX, centerY, radius * (0.12f + 0.018f * beat), glowPaint);
-        glowPaint.setMaskFilter(null);
-
-        paint.setStyle(Paint.Style.FILL);
-        paint.setShader(new RadialGradient(
-            centerX,
-            centerY,
-            radius * 0.28f,
-            Color.argb(112 + (int) (56f * beat), 255, 255, 255),
-            Color.TRANSPARENT,
-            Shader.TileMode.CLAMP
-        ));
-        canvas.drawCircle(centerX, centerY, radius * 0.28f, paint);
-        paint.setShader(null);
     }
 
     private void drawRadar(Canvas canvas) {
