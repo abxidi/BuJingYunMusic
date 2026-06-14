@@ -7,6 +7,7 @@
     <color name="nova_cyan">#64E8FF</color>
     <color name="nova_mint">#6DFFBF</color>
     <color name="nova_pink">#FF5D9F</color>
+    <color name="nova_icon_pink">#8E247D</color>
     <color name="nova_amber">#FFD166</color>
     <color name="nova_ink">#EEF8FF</color>
     <color name="nova_soft">#B8EEF8FF</color>
@@ -14,4 +15,3 @@
     <color name="nova_line">#3D72E6FF</color>
     <color name="nova_line_strong">#9E72E6FF</color>
 </resources>
-

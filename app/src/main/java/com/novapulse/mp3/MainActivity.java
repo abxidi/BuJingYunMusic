@@ -60,6 +60,7 @@ public class MainActivity extends Activity {
     private static final String PREFS_NAME = "bu_jing_yun_music";
     private static final String PREF_FAVORITE_KEYS = "favorite_song_keys";
     private static final String PREF_UI_STYLE = "ui_style";
+    private static final int REMOVED_STYLE_LIQUID = 1;
 
     private final List<Song> songs = new ArrayList<>();
     private final List<Integer> activeQueue = new ArrayList<>();
@@ -112,7 +113,6 @@ public class MainActivity extends Activity {
     private TextView tabAllSongs;
     private TextView tabFavoriteSongs;
     private TextView themeClassic;
-    private TextView themeLiquid;
     private TextView themeGalaxy;
     private TextView themeRadar;
 
@@ -198,7 +198,6 @@ public class MainActivity extends Activity {
         tabAllSongs = findViewById(R.id.tabAllSongs);
         tabFavoriteSongs = findViewById(R.id.tabFavoriteSongs);
         themeClassic = findViewById(R.id.themeClassic);
-        themeLiquid = findViewById(R.id.themeLiquid);
         themeGalaxy = findViewById(R.id.themeGalaxy);
         themeRadar = findViewById(R.id.themeRadar);
     }
@@ -342,12 +341,6 @@ public class MainActivity extends Activity {
                 applyUiStyle(ThemeVisualizerView.STYLE_CLASSIC, true);
             }
         });
-        themeLiquid.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                applyUiStyle(ThemeVisualizerView.STYLE_LIQUID, true);
-            }
-        });
         themeGalaxy.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -424,11 +417,10 @@ public class MainActivity extends Activity {
     }
 
     private void applyUiStyle(int style, boolean persist) {
-        if (style < ThemeVisualizerView.STYLE_CLASSIC || style > ThemeVisualizerView.STYLE_RADAR) {
-            style = ThemeVisualizerView.STYLE_CLASSIC;
-        }
+        int requestedStyle = style;
+        style = normalizeUiStyle(style);
         uiStyle = style;
-        if (persist) {
+        if (persist || requestedStyle != style) {
             preferences.edit().putInt(PREF_UI_STYLE, uiStyle).apply();
         }
         discOrbit.setPadding(0, 0, 0, 0);
@@ -487,9 +479,20 @@ public class MainActivity extends Activity {
 
     private void updateThemeTabs() {
         setControlBackground(themeClassic, uiStyle == ThemeVisualizerView.STYLE_CLASSIC);
-        setControlBackground(themeLiquid, uiStyle == ThemeVisualizerView.STYLE_LIQUID);
         setControlBackground(themeGalaxy, uiStyle == ThemeVisualizerView.STYLE_GALAXY);
         setControlBackground(themeRadar, uiStyle == ThemeVisualizerView.STYLE_RADAR);
+    }
+
+    private int normalizeUiStyle(int style) {
+        if (style == ThemeVisualizerView.STYLE_CLASSIC
+            || style == ThemeVisualizerView.STYLE_GALAXY
+            || style == ThemeVisualizerView.STYLE_RADAR) {
+            return style;
+        }
+        if (style == REMOVED_STYLE_LIQUID) {
+            return ThemeVisualizerView.STYLE_CLASSIC;
+        }
+        return ThemeVisualizerView.STYLE_CLASSIC;
     }
 
     private void setControlBackground(View view, boolean active) {
@@ -584,55 +587,46 @@ public class MainActivity extends Activity {
     }
 
     private int themeRootStart() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(3, 2, 8);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(2, 19, 16);
         return Color.rgb(1, 1, 2);
     }
 
     private int themeRootCenter() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(18, 6, 28);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(4, 42, 32);
         return Color.rgb(13, 14, 17);
     }
 
     private int themeRootEnd() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(8, 3, 16);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(1, 8, 9);
         return Color.rgb(0, 0, 0);
     }
 
     private int themePanelFill() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(242, 24, 11, 33);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(240, 5, 44, 34);
         return Color.argb(242, 14, 15, 18);
     }
 
     private int themePanelStrongFill() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(250, 37, 14, 48);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(248, 4, 56, 43);
         return Color.argb(250, 24, 25, 29);
     }
 
     private int themeActiveFill() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(94, 255, 48, 218);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(86, 78, 255, 177);
         return Color.argb(96, 245, 247, 250);
     }
 
     private int themeLine() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.argb(205, 230, 120, 255);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.argb(185, 86, 255, 190);
         return Color.argb(172, 214, 218, 224);
     }
 
     private int themeAccent() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(255, 45, 222);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(90, 255, 187);
         return Color.rgb(245, 247, 250);
     }
 
     private int themeAccentAlt() {
-        if (uiStyle == ThemeVisualizerView.STYLE_LIQUID) return Color.rgb(255, 205, 102);
         if (uiStyle == ThemeVisualizerView.STYLE_RADAR) return Color.rgb(202, 255, 85);
         return Color.rgb(142, 148, 158);
     }
@@ -1030,18 +1024,36 @@ public class MainActivity extends Activity {
 
     private void applyPersistedFavorites() {
         Set<String> favoriteKeys = loadFavoriteKeys();
+        boolean migrated = false;
         for (Song song : songs) {
-            song.favorite = favoriteKeys.contains(favoriteKey(song));
+            String stableKey = favoriteKey(song);
+            if (favoriteKeys.contains(stableKey)) {
+                song.favorite = true;
+                continue;
+            }
+
+            String legacyKey = legacyFavoriteKey(song);
+            song.favorite = favoriteKeys.contains(legacyKey);
+            if (song.favorite && favoriteKeys.add(stableKey)) {
+                migrated = true;
+            }
+        }
+
+        if (migrated) {
+            preferences.edit().putStringSet(PREF_FAVORITE_KEYS, favoriteKeys).apply();
         }
     }
 
     private void persistFavorite(Song song) {
         Set<String> favoriteKeys = loadFavoriteKeys();
         String key = favoriteKey(song);
+        String legacyKey = legacyFavoriteKey(song);
         if (song.favorite) {
             favoriteKeys.add(key);
+            favoriteKeys.add(legacyKey);
         } else {
             favoriteKeys.remove(key);
+            favoriteKeys.remove(legacyKey);
         }
         preferences.edit().putStringSet(PREF_FAVORITE_KEYS, favoriteKeys).apply();
     }
@@ -1051,10 +1063,22 @@ public class MainActivity extends Activity {
     }
 
     private String favoriteKey(Song song) {
+        return "v2|"
+            + normalizeFavoritePart(song.title) + "|"
+            + normalizeFavoritePart(song.duration) + "|"
+            + normalizeFavoritePart(song.size);
+    }
+
+    private String legacyFavoriteKey(Song song) {
         if (song.uri != null) {
             return song.uri.toString();
         }
         return song.title + "|" + song.meta;
+    }
+
+    private static String normalizeFavoritePart(String value) {
+        if (isEmpty(value)) return "";
+        return value.trim().toLowerCase(Locale.CHINA);
     }
 
     private void applyFavoriteButtonStyle(ImageButton button, boolean favorite) {

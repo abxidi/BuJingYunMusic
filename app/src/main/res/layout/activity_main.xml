@@ -603,21 +603,6 @@
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/themeLiquid"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_marginEnd="6dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_control_button"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center"
-                        android:text="泡沫"
-                        android:textColor="@color/nova_ink"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-
-                    <TextView
                         android:id="@+id/themeGalaxy"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"

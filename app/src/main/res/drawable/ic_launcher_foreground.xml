@@ -13,9 +13,8 @@
     <path
         android:fillColor="@android:color/transparent"
         android:pathData="M48,66 L48,34 L76,30 L76,58 M41,68 m-8,0 a8,8 0,1 0,16 0 a8,8 0,1 0,-16 0 M70,60 m-8,0 a8,8 0,1 0,16 0 a8,8 0,1 0,-16 0"
-        android:strokeColor="@color/nova_pink"
+        android:strokeColor="@color/nova_icon_pink"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="4" />
 </vector>
-

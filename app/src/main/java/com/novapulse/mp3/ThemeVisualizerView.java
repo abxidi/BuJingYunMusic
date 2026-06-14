@@ -5,7 +5,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.BlurMaskFilter;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RadialGradient;
@@ -19,7 +18,6 @@ import java.util.Random;
 
 public class ThemeVisualizerView extends View {
     public static final int STYLE_CLASSIC = 0;
-    public static final int STYLE_LIQUID = 1;
     public static final int STYLE_GALAXY = 2;
     public static final int STYLE_RADAR = 3;
 
@@ -30,7 +28,6 @@ public class ThemeVisualizerView extends View {
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path liquidPath = new Path();
     private final Path radarPath = new Path();
     private final GalaxyParticle[] radarTargets = new GalaxyParticle[RADAR_TARGET_COUNT];
     private final RectF scratchOval = new RectF();
@@ -122,128 +119,11 @@ public class ThemeVisualizerView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (uiStyle == STYLE_LIQUID) {
-            drawLiquid(canvas);
-        } else if (uiStyle == STYLE_GALAXY) {
+        if (uiStyle == STYLE_GALAXY) {
             drawGalaxy(canvas);
         } else if (uiStyle == STYLE_RADAR) {
             drawRadar(canvas);
         }
-    }
-
-    private void drawLiquid(Canvas canvas) {
-        float width = getWidth();
-        float height = getHeight();
-        float centerX = width / 2f;
-        float centerY = height / 2f;
-        float size = safeVisualSize(width, height);
-        float beat = playing ? wave(phase * 2.4f) : wave(phase * 0.7f);
-        float radius = size * (0.43f + (playing ? 0.022f * beat : 0.006f * beat));
-        float drift = playing ? phase * 0.09f : phase * 0.018f;
-
-        liquidPath.reset();
-        liquidPath.addCircle(centerX, centerY, radius, Path.Direction.CW);
-
-        glowPaint.setStyle(Paint.Style.FILL);
-        glowPaint.setMaskFilter(new BlurMaskFilter(radius * 0.09f, BlurMaskFilter.Blur.NORMAL));
-        glowPaint.setColor(Color.argb(135 + (int) (46f * beat), 200, 24, 255));
-        canvas.drawCircle(centerX, centerY, radius * 1.02f, glowPaint);
-        glowPaint.setColor(Color.argb(70 + (int) (40f * beat), 72, 170, 255));
-        canvas.drawCircle(centerX - radius * 0.04f, centerY + radius * 0.02f, radius * 0.96f, glowPaint);
-        glowPaint.setMaskFilter(null);
-
-        paint.setStyle(Paint.Style.FILL);
-        paint.setShader(new RadialGradient(
-            centerX - radius * 0.42f,
-            centerY + radius * 0.1f,
-            radius * 1.38f,
-            new int[] {
-                Color.argb(255, 245, 252, 238),
-                Color.argb(244, 160, 226, 244),
-                Color.argb(232, 218, 38, 232),
-                Color.argb(224, 88, 12, 116),
-                Color.argb(236, 10, 4, 20)
-            },
-            new float[] {0f, 0.22f, 0.48f, 0.73f, 1f},
-            Shader.TileMode.CLAMP
-        ));
-        canvas.drawCircle(centerX, centerY, radius, paint);
-        paint.setShader(null);
-
-        canvas.save();
-        canvas.clipPath(liquidPath);
-
-        paint.setShader(new LinearGradient(
-            centerX - radius,
-            centerY - radius * 0.76f + (float) Math.sin(drift) * radius * 0.24f,
-            centerX + radius,
-            centerY + radius * 0.86f + (float) Math.cos(drift * 0.8f) * radius * 0.2f,
-            new int[] {
-                Color.argb(22, 0, 0, 0),
-                Color.argb(120, 120, 55, 255),
-                Color.argb(168, 255, 35, 210),
-                Color.argb(180, 226, 246, 232),
-                Color.argb(126, 255, 171, 62),
-                Color.argb(64, 70, 8, 32)
-            },
-            new float[] {0f, 0.18f, 0.35f, 0.56f, 0.76f, 1f},
-            Shader.TileMode.CLAMP
-        ));
-        canvas.drawCircle(centerX, centerY, radius * 1.02f, paint);
-        paint.setShader(null);
-
-        paint.setShader(new RadialGradient(
-            centerX + (float) Math.sin(drift * 1.7f) * radius * 0.38f,
-            centerY - radius * 0.04f + (float) Math.cos(drift * 1.2f) * radius * 0.24f,
-            radius * 0.75f,
-            Color.argb(100 + (int) (44f * beat), 255, 0, 226),
-            Color.TRANSPARENT,
-            Shader.TileMode.CLAMP
-        ));
-        canvas.drawCircle(centerX, centerY, radius * 0.95f, paint);
-        paint.setShader(null);
-
-        paint.setShader(new RadialGradient(
-            centerX + (float) Math.cos(drift * 1.35f) * radius * 0.32f,
-            centerY + radius * 0.26f + (float) Math.sin(drift * 1.05f) * radius * 0.2f,
-            radius * 0.58f,
-            Color.argb(96 + (int) (54f * beat), 255, 172, 58),
-            Color.TRANSPARENT,
-            Shader.TileMode.CLAMP
-        ));
-        canvas.drawCircle(centerX, centerY, radius * 0.92f, paint);
-        paint.setShader(null);
-
-        paint.setShader(new RadialGradient(
-            centerX - radius * 0.52f,
-            centerY + radius * 0.08f,
-            radius * 0.56f,
-            Color.argb(210, 244, 255, 236),
-            Color.TRANSPARENT,
-            Shader.TileMode.CLAMP
-        ));
-        canvas.drawCircle(centerX - radius * 0.28f, centerY + radius * 0.08f, radius * 0.78f, paint);
-        paint.setShader(null);
-
-        canvas.restore();
-
-        glowPaint.setStyle(Paint.Style.FILL);
-        glowPaint.setShader(new RadialGradient(
-            centerX - radius * 0.42f,
-            centerY - radius * 0.32f,
-            radius * 0.56f,
-            Color.argb(118, 255, 255, 255),
-            Color.TRANSPARENT,
-            Shader.TileMode.CLAMP
-        ));
-        scratchOval.set(
-            centerX - radius * 0.72f,
-            centerY - radius * 0.68f,
-            centerX + radius * 0.08f,
-            centerY + radius * 0.12f
-        );
-        canvas.drawOval(scratchOval, glowPaint);
-        glowPaint.setShader(null);
     }
 
     private void drawGalaxy(Canvas canvas) {
