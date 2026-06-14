@@ -537,15 +537,16 @@ public class MainActivity extends Activity {
     }
 
     private GradientDrawable makePanelBackground(boolean strong) {
+        int base = strong ? forceAlpha(themePanelStrongFill(), 254) : forceAlpha(themePanelFill(), 252);
         GradientDrawable drawable = new GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
             new int[] {
-                strong ? themePanelStrongFill() : themePanelFill(),
-                withAlpha(themeAccent(), strong ? 76 : 52),
-                strong ? themePanelFill() : withAlpha(Color.BLACK, 214)
+                blendOpaque(base, themeAccent(), strong ? 0.18f : 0.12f),
+                base,
+                blendOpaque(base, Color.BLACK, strong ? 0.1f : 0.16f)
             }
         );
-        drawable.setStroke(dp(1), withAlpha(themeAccent(), strong ? 232 : 205));
+        drawable.setStroke(dp(1), withAlpha(themeAccent(), strong ? 245 : 228));
         drawable.setCornerRadius(dp(22));
         return drawable;
     }
@@ -638,6 +639,18 @@ public class MainActivity extends Activity {
 
     private int withAlpha(int color, int alpha) {
         return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
+    }
+
+    private int forceAlpha(int color, int alpha) {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
+    }
+
+    private int blendOpaque(int base, int overlay, float ratio) {
+        float clamped = Math.max(0f, Math.min(1f, ratio));
+        int red = (int) (Color.red(base) * (1f - clamped) + Color.red(overlay) * clamped);
+        int green = (int) (Color.green(base) * (1f - clamped) + Color.green(overlay) * clamped);
+        int blue = (int) (Color.blue(base) * (1f - clamped) + Color.blue(overlay) * clamped);
+        return Color.argb(Color.alpha(base), red, green, blue);
     }
 
     private void requestAudioPermissionIfNeeded() {
