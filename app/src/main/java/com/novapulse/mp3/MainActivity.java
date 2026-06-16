@@ -23,6 +23,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.PowerManager;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.view.Gravity;
@@ -1116,6 +1117,7 @@ public class MainActivity extends Activity {
         resetPlayer();
         if (!requestPlaybackFocus()) return;
         mediaPlayer = new MediaPlayer();
+        mediaPlayer.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
         mediaPlayer.setAudioAttributes(new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
