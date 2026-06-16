@@ -1106,6 +1106,7 @@ public class MainActivity extends Activity {
         if (mediaPlayer != null && prepared) {
             if (!requestPlaybackFocus()) return;
             mediaPlayer.start();
+            startPlaybackService();
             updatePlayButton();
             return;
         }
@@ -1128,6 +1129,7 @@ public class MainActivity extends Activity {
                 prepared = true;
                 if (hasAudioFocus) {
                     player.start();
+                    startPlaybackService();
                 }
                 updatePlayButton();
             }
@@ -1150,6 +1152,7 @@ public class MainActivity extends Activity {
 
     private void resetPlayer() {
         prepared = false;
+        stopPlaybackService();
         abandonPlaybackFocus();
         if (mediaPlayer != null) {
             mediaPlayer.reset();
@@ -1165,6 +1168,7 @@ public class MainActivity extends Activity {
         }
         if (!keepAudioFocus) {
             abandonPlaybackFocus();
+            stopPlaybackService();
         }
         updatePlayButton();
     }
@@ -1204,6 +1208,7 @@ public class MainActivity extends Activity {
             if (resumeOnAudioFocusGain && mediaPlayer != null && prepared) {
                 resumeOnAudioFocusGain = false;
                 mediaPlayer.start();
+                startPlaybackService();
             }
             updatePlayButton();
             return;
@@ -1228,6 +1233,26 @@ public class MainActivity extends Activity {
         playButton.setContentDescription(isPlaying ? "暂停" : "播放");
         updatePlayerMotion(isPlaying);
         updateMediaSessionState();
+    }
+
+    private void startPlaybackService() {
+        Intent intent = new Intent(this, PlaybackService.class);
+        String title = songs.isEmpty() ? getString(R.string.app_name) : songs.get(currentIndex).title;
+        intent.setAction(PlaybackService.ACTION_START);
+        intent.putExtra(PlaybackService.EXTRA_TITLE, title);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+        } catch (IllegalStateException error) {
+            Toast.makeText(this, "后台播放服务启动失败", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void stopPlaybackService() {
+        stopService(new Intent(this, PlaybackService.class));
     }
 
     private void updateMediaSessionState() {
