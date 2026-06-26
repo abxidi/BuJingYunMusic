@@ -70,9 +70,15 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <Space
+            <ImageButton
+                android:id="@+id/btnDelete"
                 android:layout_width="46dp"
-                android:layout_height="46dp" />
+                android:layout_height="46dp"
+                android:background="@drawable/bg_control_button"
+                android:contentDescription="删除当前音乐"
+                android:padding="12dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_delete" />
         </LinearLayout>
 
         <Space

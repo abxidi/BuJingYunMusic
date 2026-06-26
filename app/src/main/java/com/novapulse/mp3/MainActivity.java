@@ -6,8 +6,13 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.PendingIntent;
+import android.app.RecoverableSecurityException;
 import android.content.ContentUris;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -56,10 +61,12 @@ import java.util.Set;
 public class MainActivity extends Activity {
     private static final int REQUEST_AUDIO_PERMISSION = 1001;
     private static final int REQUEST_FOLDER = 1002;
+    private static final int REQUEST_DELETE_PERMISSION = 1003;
     private static final int MAX_TREE_SCAN_COUNT = 500;
     private static final int MAX_TREE_SCAN_DEPTH = 16;
     private static final String PREFS_NAME = "bu_jing_yun_music";
     private static final String PREF_FAVORITE_KEYS = "favorite_song_keys";
+    private static final String PREF_CURRENT_SONG_KEY = "current_song_key";
     private static final String PREF_UI_STYLE = "ui_style";
     private static final int REMOVED_STYLE_LIQUID = 1;
 
@@ -92,6 +99,7 @@ public class MainActivity extends Activity {
     private ImageView modeIcon;
     private ImageButton playButton;
     private ImageButton favoriteButton;
+    private ImageButton deleteButton;
     private View discOrbit;
     private View disc;
     private ThemeVisualizerView themeVisualizer;
@@ -132,6 +140,9 @@ public class MainActivity extends Activity {
     private boolean favoriteQueueActive;
     private boolean hasAudioFocus;
     private boolean resumeOnAudioFocusGain;
+    private String pendingDeleteSongKey;
+    private boolean pendingDeleteWasPlaying;
+    private boolean pendingDeleteNeedsRetry;
 
     private final Runnable progressUpdater = new Runnable() {
         @Override
@@ -159,9 +170,9 @@ public class MainActivity extends Activity {
         bindActions();
         applyUiStyle(uiStyle, false);
         loadSamples();
-        requestAudioPermissionIfNeeded();
         renderAll();
-        selectSong(0, false);
+        selectPreferredSong(false);
+        requestAudioPermissionIfNeeded();
         handler.post(progressUpdater);
     }
 
@@ -179,6 +190,7 @@ public class MainActivity extends Activity {
         modeIcon = findViewById(R.id.ivMode);
         playButton = findViewById(R.id.btnPlay);
         favoriteButton = findViewById(R.id.btnFavorite);
+        deleteButton = findViewById(R.id.btnDelete);
         discOrbit = findViewById(R.id.discOrbit);
         disc = findViewById(R.id.disc);
         themeVisualizer = findViewById(R.id.themeVisualizer);
@@ -242,6 +254,12 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View view) {
                 openSettingsDrawer();
+            }
+        });
+        deleteButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                confirmDeleteCurrentSong();
             }
         });
         findViewById(R.id.btnCloseDrawer).setOnClickListener(new View.OnClickListener() {
@@ -458,6 +476,7 @@ public class MainActivity extends Activity {
 
     private void applyStaticThemeBackgrounds() {
         setControlBackground(findViewById(R.id.btnMenu), false);
+        setControlBackground(deleteButton, false);
         setControlBackground(modeButton, false);
         setControlBackground(findViewById(R.id.btnPrevious), false);
         setControlBackground(findViewById(R.id.btnNext), false);
@@ -726,10 +745,9 @@ public class MainActivity extends Activity {
             songs.clear();
             songs.addAll(scanned);
             applyPersistedFavorites();
-            currentIndex = 0;
             folderCount.setText("已读取 " + songs.size() + " 首音频");
             renderAll();
-            selectSong(0, false);
+            selectPreferredSong(false);
         }
     }
 
@@ -750,13 +768,11 @@ public class MainActivity extends Activity {
         songs.clear();
         songs.addAll(scanned);
         applyPersistedFavorites();
-        currentIndex = 0;
         activeQueue.clear();
         activeQueuePosition = -1;
         folderCount.setText("已读取 " + songs.size() + " 首音频");
         renderAll();
-        List<Integer> indices = sortedSongIndices(false);
-        selectSong(indices.isEmpty() ? 0 : indices.get(0), false);
+        selectPreferredSong(false);
     }
 
     private void scanDocumentChildren(Uri treeUri, String documentId, List<Song> scanned, int depth) {
@@ -987,27 +1003,80 @@ public class MainActivity extends Activity {
         return row;
     }
 
+    private void showEmptyPlayer() {
+        resetPlayer();
+        currentIndex = 0;
+        activeQueue.clear();
+        activeQueuePosition = -1;
+        favoriteQueueActive = false;
+        trackTitle.setText("暂无本地音乐");
+        trackMeta.setText("请在设置中选择音乐目录");
+        durationText.setText("--:--");
+        elapsedText.setText("00:00");
+        updateProgressWidth(0);
+        applyFavoriteButtonStyle(favoriteButton, false);
+        preferences.edit().remove(PREF_CURRENT_SONG_KEY).apply();
+        renderAll();
+    }
+
+    private void selectPreferredSong(boolean start) {
+        if (songs.isEmpty()) {
+            showEmptyPlayer();
+            return;
+        }
+
+        int index = findPersistedSongIndex();
+        if (index < 0) {
+            List<Integer> indices = sortedSongIndices(false);
+            index = indices.isEmpty() ? 0 : indices.get(0);
+        }
+        selectSong(index, start, false, false);
+    }
+
+    private int findPersistedSongIndex() {
+        String key = preferences.getString(PREF_CURRENT_SONG_KEY, null);
+        if (isEmpty(key)) return -1;
+        return findSongIndexByKey(key);
+    }
+
+    private int findSongIndexByKey(String key) {
+        if (isEmpty(key)) return -1;
+        for (int i = 0; i < songs.size(); i++) {
+            Song song = songs.get(i);
+            if (key.equals(songKey(song)) || key.equals(legacyFavoriteKey(song))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private void selectSong(int index, boolean start) {
         selectSong(index, start, false);
     }
 
     private void selectSong(int index, boolean start, boolean keepQueue) {
+        selectSong(index, start, keepQueue, true);
+    }
+
+    private void selectSong(int index, boolean start, boolean keepQueue, boolean persistSelection) {
         if (index < 0 || index >= songs.size()) return;
+        Song song = songs.get(index);
+        boolean canStart = start && song.uri != null;
+        resetPlayer(!canStart, !canStart);
         if (!keepQueue) {
             activeQueue.clear();
             activeQueuePosition = -1;
             favoriteQueueActive = false;
         }
         currentIndex = index;
-        Song song = songs.get(index);
         trackTitle.setText(song.title);
         trackMeta.setText(song.meta);
         durationText.setText(song.duration);
         elapsedText.setText("00:00");
         applyFavoriteButtonStyle(favoriteButton, song.favorite);
-        resetPlayer();
         updateProgressWidth(0);
         renderAll();
+        if (persistSelection) persistCurrentSong(song);
         if (start) togglePlay();
     }
 
@@ -1016,11 +1085,168 @@ public class MainActivity extends Activity {
         Song song = songs.get(index);
         song.favorite = !song.favorite;
         persistFavorite(song);
-        applyFavoriteButtonStyle(favoriteButton, songs.get(currentIndex).favorite);
+        if (currentIndex >= 0 && currentIndex < songs.size()) {
+            applyFavoriteButtonStyle(favoriteButton, songs.get(currentIndex).favorite);
+        }
         if (favoriteQueueActive) {
             refreshFavoriteQueue();
         }
         renderAll();
+    }
+
+    private void confirmDeleteCurrentSong() {
+        if (songs.isEmpty() || currentIndex < 0 || currentIndex >= songs.size()) {
+            Toast.makeText(this, "暂无可删除音乐", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final Song song = songs.get(currentIndex);
+        if (song.uri == null) {
+            Toast.makeText(this, "示例音乐不能删除", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle("删除音乐")
+            .setMessage("将从目录中彻底删除：\n" + song.title)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("删除", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    deleteSongAt(currentIndex);
+                }
+            })
+            .show();
+    }
+
+    private void deleteSongAt(int index) {
+        if (index < 0 || index >= songs.size()) return;
+        Song song = songs.get(index);
+        if (song.uri == null) {
+            Toast.makeText(this, "示例音乐不能删除", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        boolean wasPlaying = index == currentIndex && isPlaybackActive();
+        if (deleteSongUri(song, wasPlaying, false)) {
+            completeDeletedSong(index, wasPlaying);
+        }
+    }
+
+    private boolean deleteSongUri(Song song, boolean wasPlaying, boolean forceDirectDelete) {
+        Uri uri = song.uri;
+        try {
+            if (DocumentsContract.isDocumentUri(this, uri)) {
+                boolean deleted = DocumentsContract.deleteDocument(getContentResolver(), uri);
+                if (!deleted) {
+                    Toast.makeText(this, "未能删除该音乐文件", Toast.LENGTH_SHORT).show();
+                }
+                return deleted;
+            }
+
+            if (!forceDirectDelete && Build.VERSION.SDK_INT >= 30 && isMediaStoreUri(uri)) {
+                requestMediaStoreDelete(song, wasPlaying, false);
+                return false;
+            }
+
+            int deleted = getContentResolver().delete(uri, null, null);
+            if (deleted > 0) return true;
+
+            Toast.makeText(this, "未能删除该音乐文件", Toast.LENGTH_SHORT).show();
+            return false;
+        } catch (SecurityException error) {
+            if (Build.VERSION.SDK_INT >= 29 && error instanceof RecoverableSecurityException) {
+                requestRecoverableDelete(song, wasPlaying, (RecoverableSecurityException) error);
+                return false;
+            }
+            Toast.makeText(this, "没有权限删除该音乐", Toast.LENGTH_SHORT).show();
+            return false;
+        } catch (IOException error) {
+            Toast.makeText(this, "未能删除该音乐文件", Toast.LENGTH_SHORT).show();
+            return false;
+        } catch (IllegalArgumentException error) {
+            Toast.makeText(this, "无法识别该音乐位置", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+    }
+
+    private void requestMediaStoreDelete(Song song, boolean wasPlaying, boolean needsRetry) {
+        ArrayList<Uri> uris = new ArrayList<>();
+        uris.add(song.uri);
+        PendingIntent deleteRequest = MediaStore.createDeleteRequest(getContentResolver(), uris);
+        startDeletePermissionRequest(song, wasPlaying, needsRetry, deleteRequest);
+    }
+
+    private void requestRecoverableDelete(Song song, boolean wasPlaying, RecoverableSecurityException error) {
+        startDeletePermissionRequest(song, wasPlaying, true, error.getUserAction().getActionIntent());
+    }
+
+    private void startDeletePermissionRequest(
+        Song song,
+        boolean wasPlaying,
+        boolean needsRetry,
+        PendingIntent deleteRequest
+    ) {
+        pendingDeleteSongKey = songKey(song);
+        pendingDeleteWasPlaying = wasPlaying;
+        pendingDeleteNeedsRetry = needsRetry;
+        try {
+            startIntentSenderForResult(
+                deleteRequest.getIntentSender(),
+                REQUEST_DELETE_PERMISSION,
+                null,
+                0,
+                0,
+                0
+            );
+        } catch (IntentSender.SendIntentException error) {
+            clearPendingDelete();
+            Toast.makeText(this, "无法打开系统删除确认", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private boolean isMediaStoreUri(Uri uri) {
+        return uri != null && "media".equals(uri.getAuthority());
+    }
+
+    private void completeDeletedSong(int deletedIndex, boolean wasPlaying) {
+        if (deletedIndex < 0 || deletedIndex >= songs.size()) return;
+        Song deletedSong = songs.get(deletedIndex);
+        if (deletedSong.favorite) {
+            deletedSong.favorite = false;
+            persistFavorite(deletedSong);
+        }
+
+        boolean deletedCurrentSong = deletedIndex == currentIndex;
+        if (deletedCurrentSong) {
+            resetPlayer(true, true);
+        }
+        songs.remove(deletedIndex);
+        activeQueue.clear();
+        activeQueuePosition = -1;
+        favoriteQueueActive = false;
+
+        folderCount.setText(songs.isEmpty() ? "当前目录暂无音频" : "已读取 " + songs.size() + " 首音频");
+
+        if (songs.isEmpty()) {
+            showEmptyPlayer();
+            Toast.makeText(this, "已删除音乐", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (deletedCurrentSong) {
+            int nextIndex = Math.min(deletedIndex, songs.size() - 1);
+            selectSong(nextIndex, wasPlaying, false, true);
+        } else {
+            if (deletedIndex < currentIndex) currentIndex--;
+            renderAll();
+        }
+        Toast.makeText(this, "已删除音乐", Toast.LENGTH_SHORT).show();
+    }
+
+    private void clearPendingDelete() {
+        pendingDeleteSongKey = null;
+        pendingDeleteWasPlaying = false;
+        pendingDeleteNeedsRetry = false;
     }
 
     private void applyPersistedFavorites() {
@@ -1063,6 +1289,15 @@ public class MainActivity extends Activity {
         return new HashSet<>(preferences.getStringSet(PREF_FAVORITE_KEYS, new HashSet<String>()));
     }
 
+    private void persistCurrentSong(Song song) {
+        if (song == null || song.uri == null) return;
+        preferences.edit().putString(PREF_CURRENT_SONG_KEY, songKey(song)).apply();
+    }
+
+    private String songKey(Song song) {
+        return favoriteKey(song);
+    }
+
     private String favoriteKey(Song song) {
         return "v2|"
             + normalizeFavoritePart(song.title) + "|"
@@ -1092,6 +1327,10 @@ public class MainActivity extends Activity {
     }
 
     private void togglePlay() {
+        if (songs.isEmpty() || currentIndex < 0 || currentIndex >= songs.size()) {
+            Toast.makeText(this, "暂无可播放音乐", Toast.LENGTH_SHORT).show();
+            return;
+        }
         Song song = songs.get(currentIndex);
         if (song.uri == null) {
             Toast.makeText(this, "授权后可播放手机中的真实音频", Toast.LENGTH_SHORT).show();
@@ -1106,6 +1345,7 @@ public class MainActivity extends Activity {
         if (mediaPlayer != null && prepared) {
             if (!requestPlaybackFocus()) return;
             mediaPlayer.start();
+            persistCurrentSong(song);
             startPlaybackService();
             updatePlayButton();
             return;
@@ -1115,8 +1355,12 @@ public class MainActivity extends Activity {
     }
 
     private void prepareAndPlay(Song song) {
-        resetPlayer();
-        if (!requestPlaybackFocus()) return;
+        resetPlayer(false, false);
+        if (!requestPlaybackFocus()) {
+            stopPlaybackService();
+            return;
+        }
+        startPlaybackService(song.title);
         mediaPlayer = new MediaPlayer();
         mediaPlayer.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
         mediaPlayer.setAudioAttributes(new AudioAttributes.Builder()
@@ -1129,6 +1373,7 @@ public class MainActivity extends Activity {
                 prepared = true;
                 if (hasAudioFocus) {
                     player.start();
+                    persistCurrentSong(song);
                     startPlaybackService();
                 }
                 updatePlayButton();
@@ -1142,7 +1387,7 @@ public class MainActivity extends Activity {
         });
 
         try {
-            mediaPlayer.setDataSource(this, song.uri);
+            mediaPlayer.setDataSource(getApplicationContext(), song.uri);
             mediaPlayer.prepareAsync();
         } catch (IOException error) {
             Toast.makeText(this, "无法播放该音频", Toast.LENGTH_SHORT).show();
@@ -1151,9 +1396,17 @@ public class MainActivity extends Activity {
     }
 
     private void resetPlayer() {
+        resetPlayer(true, true);
+    }
+
+    private void resetPlayer(boolean stopService, boolean abandonFocus) {
         prepared = false;
-        stopPlaybackService();
-        abandonPlaybackFocus();
+        if (stopService) {
+            stopPlaybackService();
+        }
+        if (abandonFocus) {
+            abandonPlaybackFocus();
+        }
         if (mediaPlayer != null) {
             mediaPlayer.reset();
             mediaPlayer.release();
@@ -1222,8 +1475,7 @@ public class MainActivity extends Activity {
             pausePlayback(true);
         } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
             resumeOnAudioFocusGain = false;
-            pausePlayback(true);
-            abandonPlaybackFocus();
+            pausePlayback(false);
         }
     }
 
@@ -1236,8 +1488,14 @@ public class MainActivity extends Activity {
     }
 
     private void startPlaybackService() {
+        String title = songs.isEmpty() || currentIndex < 0 || currentIndex >= songs.size()
+            ? getString(R.string.app_name)
+            : songs.get(currentIndex).title;
+        startPlaybackService(title);
+    }
+
+    private void startPlaybackService(String title) {
         Intent intent = new Intent(this, PlaybackService.class);
-        String title = songs.isEmpty() ? getString(R.string.app_name) : songs.get(currentIndex).title;
         intent.setAction(PlaybackService.ACTION_START);
         intent.putExtra(PlaybackService.EXTRA_TITLE, title);
         try {
@@ -1603,6 +1861,10 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_DELETE_PERMISSION) {
+            handleDeletePermissionResult(resultCode);
+            return;
+        }
         if (requestCode == REQUEST_FOLDER && resultCode == RESULT_OK && data != null) {
             Uri treeUri = data.getData();
             if (treeUri != null) {
@@ -1614,6 +1876,36 @@ public class MainActivity extends Activity {
                 Toast.makeText(this, "已设置音乐目录", Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+    private void handleDeletePermissionResult(int resultCode) {
+        if (isEmpty(pendingDeleteSongKey)) {
+            clearPendingDelete();
+            return;
+        }
+        if (resultCode != RESULT_OK) {
+            clearPendingDelete();
+            Toast.makeText(this, "已取消删除", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        int index = findSongIndexByKey(pendingDeleteSongKey);
+        if (index < 0) {
+            clearPendingDelete();
+            renderAll();
+            return;
+        }
+
+        boolean wasPlaying = pendingDeleteWasPlaying;
+        boolean needsRetry = pendingDeleteNeedsRetry;
+        clearPendingDelete();
+
+        if (needsRetry && !deleteSongUri(songs.get(index), wasPlaying, true)) {
+            return;
+        }
+
+        index = findSongIndexByKey(songKey(songs.get(index)));
+        completeDeletedSong(index, wasPlaying);
     }
 
     @Override
