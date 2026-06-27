@@ -68,7 +68,20 @@ public class MainActivity extends Activity {
     private static final String PREF_FAVORITE_KEYS = "favorite_song_keys";
     private static final String PREF_CURRENT_SONG_KEY = "current_song_key";
     private static final String PREF_UI_STYLE = "ui_style";
+    private static final String PREF_WIDGET_TITLE = "widget_title";
+    private static final String PREF_WIDGET_META = "widget_meta";
+    private static final String PREF_WIDGET_DURATION = "widget_duration";
+    private static final String PREF_WIDGET_ELAPSED = "widget_elapsed";
+    private static final String PREF_WIDGET_PROGRESS = "widget_progress";
+    private static final String PREF_WIDGET_PLAYING = "widget_playing";
+    private static final String PREF_WIDGET_FAVORITE = "widget_favorite";
+    public static final String ACTION_WIDGET_OPEN = "com.novapulse.mp3.action.WIDGET_OPEN";
+    public static final String ACTION_WIDGET_PLAY_TOGGLE = "com.novapulse.mp3.action.WIDGET_PLAY_TOGGLE";
+    public static final String ACTION_WIDGET_PREVIOUS = "com.novapulse.mp3.action.WIDGET_PREVIOUS";
+    public static final String ACTION_WIDGET_NEXT = "com.novapulse.mp3.action.WIDGET_NEXT";
+    public static final String ACTION_WIDGET_FAVORITE = "com.novapulse.mp3.action.WIDGET_FAVORITE";
     private static final int REMOVED_STYLE_LIQUID = 1;
+    private static final long WIDGET_PROGRESS_UPDATE_INTERVAL_MS = 5000L;
 
     private final List<Song> songs = new ArrayList<>();
     private final List<Integer> activeQueue = new ArrayList<>();
@@ -143,6 +156,7 @@ public class MainActivity extends Activity {
     private String pendingDeleteSongKey;
     private boolean pendingDeleteWasPlaying;
     private boolean pendingDeleteNeedsRetry;
+    private long lastWidgetProgressUpdateMs;
 
     private final Runnable progressUpdater = new Runnable() {
         @Override
@@ -174,6 +188,15 @@ public class MainActivity extends Activity {
         selectPreferredSong(false);
         requestAudioPermissionIfNeeded();
         handler.post(progressUpdater);
+        handleWidgetIntent(getIntent());
+        updateWidgetSnapshot(true);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleWidgetIntent(intent);
     }
 
     private void bindViews() {
@@ -374,6 +397,24 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void handleWidgetIntent(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getAction();
+        if (ACTION_WIDGET_PLAY_TOGGLE.equals(action)) {
+            togglePlay();
+        } else if (ACTION_WIDGET_PREVIOUS.equals(action)) {
+            playPrevious();
+        } else if (ACTION_WIDGET_NEXT.equals(action)) {
+            playNext(true);
+        } else if (ACTION_WIDGET_FAVORITE.equals(action)) {
+            toggleFavorite(currentIndex);
+        } else if (!ACTION_WIDGET_OPEN.equals(action)) {
+            return;
+        }
+        updateWidgetSnapshot(true);
+        intent.setAction(ACTION_WIDGET_OPEN);
+    }
+
     private void initMediaSession() {
         mediaSession = new MediaSession(this, "BuJingYunMusic");
         mediaSession.setFlags(
@@ -472,6 +513,7 @@ public class MainActivity extends Activity {
             applyFavoriteButtonStyle(favoriteButton, songs.get(currentIndex).favorite);
             renderAll();
         }
+        updateWidgetSnapshot(true);
     }
 
     private void applyStaticThemeBackgrounds() {
@@ -1017,6 +1059,7 @@ public class MainActivity extends Activity {
         applyFavoriteButtonStyle(favoriteButton, false);
         preferences.edit().remove(PREF_CURRENT_SONG_KEY).apply();
         renderAll();
+        updateWidgetSnapshot(true);
     }
 
     private void selectPreferredSong(boolean start) {
@@ -1078,6 +1121,7 @@ public class MainActivity extends Activity {
         renderAll();
         if (persistSelection) persistCurrentSong(song);
         if (start) togglePlay();
+        updateWidgetSnapshot(true);
     }
 
     private void toggleFavorite(int index) {
@@ -1092,6 +1136,7 @@ public class MainActivity extends Activity {
             refreshFavoriteQueue();
         }
         renderAll();
+        updateWidgetSnapshot(true);
     }
 
     private void confirmDeleteCurrentSong() {
@@ -1239,6 +1284,7 @@ public class MainActivity extends Activity {
         } else {
             if (deletedIndex < currentIndex) currentIndex--;
             renderAll();
+            updateWidgetSnapshot(true);
         }
         Toast.makeText(this, "已删除音乐", Toast.LENGTH_SHORT).show();
     }
@@ -1485,6 +1531,55 @@ public class MainActivity extends Activity {
         playButton.setContentDescription(isPlaying ? "暂停" : "播放");
         updatePlayerMotion(isPlaying);
         updateMediaSessionState();
+        updateWidgetSnapshot(true);
+    }
+
+    private void updateWidgetSnapshot(boolean force) {
+        if (preferences == null) return;
+        long now = System.currentTimeMillis();
+        if (!force && now - lastWidgetProgressUpdateMs < WIDGET_PROGRESS_UPDATE_INTERVAL_MS) return;
+        lastWidgetProgressUpdateMs = now;
+
+        String title = getString(R.string.widget_empty_title);
+        String meta = getString(R.string.widget_empty_meta);
+        String duration = "--:--";
+        String elapsed = "00:00";
+        int progress = 0;
+        boolean favorite = false;
+
+        if (!songs.isEmpty() && currentIndex >= 0 && currentIndex < songs.size()) {
+            Song song = songs.get(currentIndex);
+            title = song.title;
+            meta = song.meta;
+            duration = song.duration;
+            favorite = song.favorite;
+        }
+
+        if (mediaPlayer != null && prepared) {
+            try {
+                int positionMs = mediaPlayer.getCurrentPosition();
+                int durationMs = mediaPlayer.getDuration();
+                elapsed = formatDuration(positionMs);
+                if (durationMs > 0) {
+                    duration = formatDuration(durationMs);
+                    progress = Math.max(0, Math.min(1000, (int) (positionMs * 1000f / durationMs)));
+                }
+            } catch (IllegalStateException ignored) {
+                elapsed = "00:00";
+                progress = 0;
+            }
+        }
+
+        preferences.edit()
+            .putString(PREF_WIDGET_TITLE, title)
+            .putString(PREF_WIDGET_META, meta)
+            .putString(PREF_WIDGET_DURATION, duration)
+            .putString(PREF_WIDGET_ELAPSED, elapsed)
+            .putInt(PREF_WIDGET_PROGRESS, progress)
+            .putBoolean(PREF_WIDGET_PLAYING, isPlaybackActive())
+            .putBoolean(PREF_WIDGET_FAVORITE, favorite)
+            .apply();
+        PlayerWidgetProvider.updateAll(this);
     }
 
     private void startPlaybackService() {
@@ -1691,6 +1786,7 @@ public class MainActivity extends Activity {
         if (duration > 0) {
             updateProgressWidth(position / (float) duration);
         }
+        updateWidgetSnapshot(false);
     }
 
     private void updateProgressWidth(final float progress) {
@@ -1716,6 +1812,7 @@ public class MainActivity extends Activity {
         mediaPlayer.seekTo(position);
         elapsedText.setText(formatDuration(position));
         updateProgressWidth(progress);
+        updateWidgetSnapshot(true);
     }
 
     private void openSettingsDrawer() {

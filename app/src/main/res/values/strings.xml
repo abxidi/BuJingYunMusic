@@ -7,4 +7,9 @@
     <string name="menu_title">设置</string>
     <string name="menu_subtitle">目录 / 播放控制</string>
     <string name="pick_folder">选择手机存储目录</string>
+    <string name="widget_player_name">步惊云播放小组件</string>
+    <string name="widget_player_description">跟随主题变化的播放小组件</string>
+    <string name="widget_empty_title">等待播放</string>
+    <string name="widget_empty_meta">打开步惊云音乐选择本地音频</string>
+    <string name="widget_art_description">当前音乐封面</string>
 </resources>
